@@ -1,9 +1,8 @@
-FROM dart:stable
+FROM cirrusci/flutter:stable
 
 WORKDIR /app
-
 COPY . .
 
-RUN dart pub get
+RUN flutter pub get
 
-CMD ["dart", "bin/scheduler.dart"]
+CMD ["flutter", "run", "--no-sound-null-safety", "bin/scheduler.dart"]
