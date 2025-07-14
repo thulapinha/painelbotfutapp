@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: botfut-scheduler
+    env: docker
+    repo: https://github.com/thulapinha/painelbotfutapp
+    branch: main
+    autoDeploy: true
+    envVars:
+      - key: BOT_TOKEN
+        value: 7854661345:AAEzg74OEidhdWB7_uJ9hefKdoBlGCV94f4
+      - key: CHAT_ID
+        value: 709273579
+      - key: API_KEY
+        value: ffebc5794b0d9f51fd639ac54563b848
