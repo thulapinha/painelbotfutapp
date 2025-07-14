@@ -20,7 +20,9 @@ class _LivePageState extends State<LivePage> {
     _liveMatches = _loadLiveMatches(widget.future);
   }
 
-  Future<List<Map<String, dynamic>>> _loadLiveMatches(Future<List<FixturePrediction>> future) async {
+  Future<List<Map<String, dynamic>>> _loadLiveMatches(
+    Future<List<FixturePrediction>> future,
+  ) async {
     final preLiveList = await future;
     final preLiveIds = preLiveList.map((e) => e.id).toSet();
     final fixtures = await FootballApiService.getTodayFixtures();
@@ -43,15 +45,18 @@ class _LivePageState extends State<LivePage> {
       if (pred == null) continue;
 
       final p = pred['predictions'] as Map<String, dynamic>? ?? {};
-      final over15 = double.tryParse(
-        p['under_over']?['goals']?['over_1_5']?['percentage']?.toString() ?? '0',
-      ) ?? 0;
-      final xgHome = double.tryParse(
-        p['xGoals']?['home']?['total']?.toString() ?? '0',
-      ) ?? 0;
-      final xgAway = double.tryParse(
-        p['xGoals']?['away']?['total']?.toString() ?? '0',
-      ) ?? 0;
+      final over15 =
+          double.tryParse(
+            p['under_over']?['goals']?['over_1_5']?['percentage']?.toString() ??
+                '0',
+          ) ??
+          0;
+      final xgHome =
+          double.tryParse(p['xGoals']?['home']?['total']?.toString() ?? '0') ??
+          0;
+      final xgAway =
+          double.tryParse(p['xGoals']?['away']?['total']?.toString() ?? '0') ??
+          0;
 
       if (over15 >= 60 || (xgHome + xgAway) >= 1.0) {
         filtered.add({
@@ -81,7 +86,9 @@ class _LivePageState extends State<LivePage> {
 
         final matches = snap.data ?? [];
         if (matches.isEmpty) {
-          return const Center(child: Text('Nenhum jogo ao vivo com potencial.'));
+          return const Center(
+            child: Text('Nenhum jogo ao vivo com potencial.'),
+          );
         }
 
         return ListView.builder(

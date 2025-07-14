@@ -4,7 +4,7 @@ import '../models/fixture_prediction.dart';
 import 'football_api_service.dart';
 
 class PreLiveService {
-  static const _cacheKey     = 'pre_live_data';
+  static const _cacheKey = 'pre_live_data';
   static const _cacheDateKey = 'pre_live_date';
 
   // Cache em memória para evitar leituras repetidas
@@ -12,13 +12,13 @@ class PreLiveService {
   static String? _memoryDate;
 
   /// Se forceRefresh=true, ignora cache e busca da API
-  static Future<List<FixturePrediction>> getPreLive({bool forceRefresh = false}) async {
+  static Future<List<FixturePrediction>> getPreLive({
+    bool forceRefresh = false,
+  }) async {
     final today = DateTime.now().toIso8601String().split('T').first;
 
     // 1) Retorna do cache em memória
-    if (!forceRefresh &&
-        _memoryCache != null &&
-        _memoryDate == today) {
+    if (!forceRefresh && _memoryCache != null && _memoryDate == today) {
       return _memoryCache!;
     }
 
@@ -26,16 +26,14 @@ class PreLiveService {
     final savedDate = prefs.getString(_cacheDateKey);
 
     // 2) Se for hoje e houver cache em prefs, carrega dele
-    if (!forceRefresh &&
-        _memoryCache == null &&
-        savedDate == today) {
+    if (!forceRefresh && _memoryCache == null && savedDate == today) {
       final raw = prefs.getString(_cacheKey);
       if (raw != null) {
         final list = (json.decode(raw) as List<dynamic>)
             .map((e) => FixturePrediction.fromJson(e as Map<String, dynamic>))
             .toList();
         _memoryCache = list;
-        _memoryDate  = today;
+        _memoryDate = today;
         return list;
       }
     }
@@ -66,7 +64,7 @@ class PreLiveService {
     await prefs.setString(_cacheDateKey, today);
 
     _memoryCache = preds;
-    _memoryDate  = today;
+    _memoryDate = today;
 
     // 5) Também salva uma cópia permanente por data
     final todayKey = 'prelive_$today';

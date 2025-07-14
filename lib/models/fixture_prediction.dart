@@ -56,9 +56,9 @@ class FixturePrediction {
   });
 
   factory FixturePrediction.fromApiJson(
-      Map<String, dynamic> fx,
-      Map<String, dynamic> resp,
-      ) {
+    Map<String, dynamic> fx,
+    Map<String, dynamic> resp,
+  ) {
     final home = fx['teams']['home']['name'] as String;
     final away = fx['teams']['away']['name'] as String;
     final date = DateTime.parse(fx['fixture']['date'] as String).toLocal();
@@ -76,31 +76,35 @@ class FixturePrediction {
       return double.tryParse(s) ?? 0;
     }
 
-    final over15 = double.tryParse(
-      p['under_over']?['goals']?['over_1_5']?['percentage']?.toString() ?? '0',
-    ) ?? 0;
+    final over15 =
+        double.tryParse(
+          p['under_over']?['goals']?['over_1_5']?['percentage']?.toString() ??
+              '0',
+        ) ??
+        0;
 
-    final xgHome = double.tryParse(
-      p['xGoals']?['home']?['total']?.toString() ?? '0',
-    ) ?? 0;
+    final xgHome =
+        double.tryParse(p['xGoals']?['home']?['total']?.toString() ?? '0') ?? 0;
 
-    final xgAway = double.tryParse(
-      p['xGoals']?['away']?['total']?.toString() ?? '0',
-    ) ?? 0;
+    final xgAway =
+        double.tryParse(p['xGoals']?['away']?['total']?.toString() ?? '0') ?? 0;
 
     final dc = p['doubleChance']?['label']?.toString() ?? '';
-    final dcPct = double.tryParse(
-      p['doubleChance']?['percentage']?.toString() ?? '0',
-    ) ?? 0;
+    final dcPct =
+        double.tryParse(p['doubleChance']?['percentage']?.toString() ?? '0') ??
+        0;
 
-    final secondaryAdvice = p['under_over']?['goals']?['over_2_5']?['label']?.toString() ?? dc;
+    final secondaryAdvice =
+        p['under_over']?['goals']?['over_2_5']?['label']?.toString() ?? dc;
 
-    final over25Label = p['under_over']?['goals']?['over_2_5']?['label']?.toString();
+    final over25Label = p['under_over']?['goals']?['over_2_5']?['label']
+        ?.toString();
     final over25Pct = double.tryParse(
       p['under_over']?['goals']?['over_2_5']?['percentage']?.toString() ?? '0',
     );
 
-    final under25Label = p['under_over']?['goals']?['under_2_5']?['label']?.toString();
+    final under25Label = p['under_over']?['goals']?['under_2_5']?['label']
+        ?.toString();
     final under25Pct = double.tryParse(
       p['under_over']?['goals']?['under_2_5']?['percentage']?.toString() ?? '0',
     );

@@ -3,9 +3,7 @@ import 'dart:convert';
 
 class FootballApiService {
   static const String _apiKey = 'ffebc5794b0d9f51fd639ac54563b848';
-  static const Map<String, String> _headers = {
-    'x-apisports-key': _apiKey,
-  };
+  static const Map<String, String> _headers = {'x-apisports-key': _apiKey};
   static const String _baseUrl = 'https://v3.football.api-sports.io';
 
   /// Busca jogos de HOJE usando data local
@@ -54,5 +52,4 @@ class FootballApiService {
       return null;
     }
   }
-
 }

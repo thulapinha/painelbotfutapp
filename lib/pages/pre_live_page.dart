@@ -10,7 +10,8 @@ class PreLivePage extends StatefulWidget {
   State<PreLivePage> createState() => _PreLivePageState();
 }
 
-class _PreLivePageState extends State<PreLivePage> with AutomaticKeepAliveClientMixin {
+class _PreLivePageState extends State<PreLivePage>
+    with AutomaticKeepAliveClientMixin {
   late Future<List<FixturePrediction>> _future;
   bool _mostrarSomenteFuturos = false;
 
@@ -44,7 +45,9 @@ class _PreLivePageState extends State<PreLivePage> with AutomaticKeepAliveClient
               ),
               const SizedBox(width: 12),
               FilterChip(
-                label: Text(_mostrarSomenteFuturos ? "Somente futuros" : "Todos os jogos"),
+                label: Text(
+                  _mostrarSomenteFuturos ? "Somente futuros" : "Todos os jogos",
+                ),
                 selected: _mostrarSomenteFuturos,
                 onSelected: (v) => setState(() => _mostrarSomenteFuturos = v),
                 selectedColor: Colors.green.shade100,
@@ -78,7 +81,8 @@ class _PreLivePageState extends State<PreLivePage> with AutomaticKeepAliveClient
                   final m = list[i];
                   final dt = m.date;
                   final date = "${dt.day}/${dt.month}/${dt.year}";
-                  final time = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+                  final time =
+                      "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
 
                   final melhor = _getMelhorEntrada(m);
                   final destaqueCor = melhor.pct >= 80
@@ -91,7 +95,10 @@ class _PreLivePageState extends State<PreLivePage> with AutomaticKeepAliveClient
                   final statusIcon = isPassado ? "⏱️" : "🟢";
 
                   return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     child: ListTile(
                       title: Text("$statusIcon ${m.home} x ${m.away}"),
                       subtitle: Column(
@@ -99,12 +106,20 @@ class _PreLivePageState extends State<PreLivePage> with AutomaticKeepAliveClient
                         children: [
                           Text("📅 $date    ⏰ $time"),
                           const SizedBox(height: 6),
-                          Text("📌 Estratégia: ${melhor.label}",
-                              style: TextStyle(color: destaqueCor, fontWeight: FontWeight.bold)),
+                          Text(
+                            "📌 Estratégia: ${melhor.label}",
+                            style: TextStyle(
+                              color: destaqueCor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           if (m.advice.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
-                              child: Text("🧠 ${m.advice}", style: const TextStyle(fontSize: 13)),
+                              child: Text(
+                                "🧠 ${m.advice}",
+                                style: const TextStyle(fontSize: 13),
+                              ),
                             ),
                         ],
                       ),
@@ -128,8 +143,10 @@ class _PreLivePageState extends State<PreLivePage> with AutomaticKeepAliveClient
   void _enviarTip(FixturePrediction m, _EntradaSugestao melhor) {
     final dt = m.date;
     final date = "${dt.day}/${dt.month}/${dt.year}";
-    final time = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
-    final msg = """
+    final time =
+        "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+    final msg =
+        """
 🎯 *BotFut – Tip*
 ⚽ ${m.home} x ${m.away}
 📅 $date ⏰ $time
@@ -137,16 +154,18 @@ class _PreLivePageState extends State<PreLivePage> with AutomaticKeepAliveClient
 ${m.advice.isNotEmpty ? "🧠 ${m.advice}" : ""}
 """;
     TelegramService.sendMessage(msg);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Tip enviada ao Telegram!")),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Tip enviada ao Telegram!")));
   }
 
   void _mostrarDialogo(FixturePrediction m, _EntradaSugestao melhor) {
     final dt = m.date;
     final date = "${dt.day}/${dt.month}/${dt.year}";
-    final time = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
-    final msg = """
+    final time =
+        "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+    final msg =
+        """
 🎯 *BotFut – Tip*
 ⚽ ${m.home} x ${m.away}
 📅 $date ⏰ $time
@@ -183,7 +202,9 @@ ${m.advice.isNotEmpty ? "🧠 ${m.advice}" : ""}
     final List<_EntradaSugestao> opcoes = [];
 
     if ((m.doubleChance ?? '').isNotEmpty && m.doubleChancePct > 70) {
-      opcoes.add(_EntradaSugestao("Dupla Chance: ${m.doubleChance}", m.doubleChancePct));
+      opcoes.add(
+        _EntradaSugestao("Dupla Chance: ${m.doubleChance}", m.doubleChancePct),
+      );
     }
 
     if ((m.over25Label ?? '').isNotEmpty && (m.over25Pct ?? 0) > 70) {
@@ -213,11 +234,18 @@ ${m.advice.isNotEmpty ? "🧠 ${m.advice}" : ""}
     // Se nada passou dos 70%, usa fallback com base nas melhores disponíveis
     if (opcoes.isEmpty) {
       final fallback = <_EntradaSugestao>[
-        if ((m.doubleChance ?? '').isNotEmpty) _EntradaSugestao("Dupla Chance: ${m.doubleChance}", m.doubleChancePct),
-        if ((m.over25Label ?? '').isNotEmpty) _EntradaSugestao("Over 2.5", m.over25Pct ?? 0),
-        if ((m.under25Label ?? '').isNotEmpty) _EntradaSugestao("Under 2.5", m.under25Pct ?? 0),
+        if ((m.doubleChance ?? '').isNotEmpty)
+          _EntradaSugestao(
+            "Dupla Chance: ${m.doubleChance}",
+            m.doubleChancePct,
+          ),
+        if ((m.over25Label ?? '').isNotEmpty)
+          _EntradaSugestao("Over 2.5", m.over25Pct ?? 0),
+        if ((m.under25Label ?? '').isNotEmpty)
+          _EntradaSugestao("Under 2.5", m.under25Pct ?? 0),
         if (m.over15 > 0) _EntradaSugestao("Over 1.5", m.over15),
-        if ((m.ambosMarcamLabel ?? '').isNotEmpty) _EntradaSugestao("Ambas Marcam", m.ambosMarcamPct ?? 0),
+        if ((m.ambosMarcamLabel ?? '').isNotEmpty)
+          _EntradaSugestao("Ambas Marcam", m.ambosMarcamPct ?? 0),
         _EntradaSugestao("Casa vence", m.homePct),
         _EntradaSugestao("Fora vence", m.awayPct),
       ];
@@ -229,7 +257,6 @@ ${m.advice.isNotEmpty ? "🧠 ${m.advice}" : ""}
     opcoes.sort((a, b) => b.pct.compareTo(a.pct));
     return opcoes.first;
   }
-
 
   @override
   bool get wantKeepAlive => true;

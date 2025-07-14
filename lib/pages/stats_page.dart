@@ -56,7 +56,7 @@ class _StatsPageState extends State<StatsPage> {
           }
 
           final greenTotal = dados.fold(0, (sum, d) => sum + d.green);
-          final redTotal   = dados.fold(0, (sum, d) => sum + d.red);
+          final redTotal = dados.fold(0, (sum, d) => sum + d.red);
           final acertos = (greenTotal + redTotal) > 0
               ? (greenTotal / (greenTotal + redTotal)) * 100
               : 0.0;
@@ -73,22 +73,32 @@ class _StatsPageState extends State<StatsPage> {
                       maxY: (greenTotal + redTotal).toDouble() + 2,
                       titlesData: FlTitlesData(
                         leftTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: true, reservedSize: 32),
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 32,
+                          ),
                         ),
                         bottomTitles: AxisTitles(
                           sideTitles: SideTitles(
                             showTitles: true,
                             getTitlesWidget: (value, _) {
                               final i = value.toInt();
-                              if (i < 0 || i >= dados.length) return const SizedBox.shrink();
+                              if (i < 0 || i >= dados.length)
+                                return const SizedBox.shrink();
                               final parts = dados[i].data.split('-');
-                              return Text('${parts[1]}/${parts[2]}',
-                                  style: const TextStyle(fontSize: 10));
+                              return Text(
+                                '${parts[1]}/${parts[2]}',
+                                style: const TextStyle(fontSize: 10),
+                              );
                             },
                           ),
                         ),
-                        topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        topTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        rightTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
                       ),
                       borderData: FlBorderData(show: false),
                       barGroups: dados.asMap().entries.map((e) {
@@ -97,8 +107,14 @@ class _StatsPageState extends State<StatsPage> {
                         return BarChartGroupData(
                           x: i,
                           barRods: [
-                            BarChartRodData(toY: d.green.toDouble(), color: Colors.green),
-                            BarChartRodData(toY: d.red.toDouble(),   color: Colors.red),
+                            BarChartRodData(
+                              toY: d.green.toDouble(),
+                              color: Colors.green,
+                            ),
+                            BarChartRodData(
+                              toY: d.red.toDouble(),
+                              color: Colors.red,
+                            ),
                           ],
                           barsSpace: 4,
                         );
@@ -107,10 +123,14 @@ class _StatsPageState extends State<StatsPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Text("✅ GREEN: $greenTotal    ❌ RED: $redTotal",
-                    style: const TextStyle(fontSize: 16)),
-                Text("🎯 Acerto Total: ${acertos.toStringAsFixed(1)}%",
-                    style: const TextStyle(fontSize: 16)),
+                Text(
+                  "✅ GREEN: $greenTotal    ❌ RED: $redTotal",
+                  style: const TextStyle(fontSize: 16),
+                ),
+                Text(
+                  "🎯 Acerto Total: ${acertos.toStringAsFixed(1)}%",
+                  style: const TextStyle(fontSize: 16),
+                ),
               ],
             ),
           );
@@ -134,11 +154,13 @@ class _DiaStats {
 
   static Future<List<_DiaStats>> reconstruirRelatorios() async {
     final prefs = await SharedPreferences.getInstance();
-    final keys = prefs.getKeys()
-        .where((k) => k.startsWith('report_'))
-        .map((k) => k.replaceFirst('report_', ''))
-        .toList()
-      ..sort((a, b) => b.compareTo(a));
+    final keys =
+        prefs
+            .getKeys()
+            .where((k) => k.startsWith('report_'))
+            .map((k) => k.replaceFirst('report_', ''))
+            .toList()
+          ..sort((a, b) => b.compareTo(a));
 
     final List<_DiaStats> lista = [];
     for (final dia in keys) {
@@ -149,7 +171,7 @@ class _DiaStats {
       for (var item in decoded) {
         final result = (item['result'] as String).toUpperCase();
         if (result.contains('GREEN')) green++;
-        if (result.contains('RED'))   red++;
+        if (result.contains('RED')) red++;
       }
       lista.add(_DiaStats(data: dia, green: green, red: red));
     }

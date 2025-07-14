@@ -3,196 +3,202 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 
-// ─── DADOS DA API E DO BOT TELEGRAM ─────────────────────────────────────────
+// ─── CONSTS DO TELEGRAM E API-SPORTS ─────────────────────────────────────────
 const String _botToken = '7854661345:AAEzg74OEidhdWB7_uJ9hefKdoBlGCV94f4';
-const String _chatId   = '709273579';
-const String _apiKey   = 'ffebc5794b0d9f51fd639ac54563b848';
+const String _chatId = '709273579';
+const String _apiKey = 'ffebc5794b0d9f51fd639ac54563b848';
 
-const Map<String, String> _headers = {
-  'x-apisports-key': _apiKey,
-};
-
-const String _baseUrl      = 'https://v3.football.api-sports.io';
+const String _baseUrl = 'https://v3.football.api-sports.io';
 const String _fixturesPath = '/fixtures';
-const String _predsPath    = '/predictions';
+const String _predsPath = '/predictions';
 
-String get _telegramUrl =>
-    'https://api.telegram.org/bot$_botToken/sendMessage';
-// ────────────────────────────────────────────────────────────────────────────
+String get _telegramUrl => 'https://api.telegram.org/bot$_botToken/sendMessage';
 
+// ─── MAIN ────────────────────────────────────────────────────────────────────
 Future<void> main() async {
-  final now   = DateTime.now();
+  final now = DateTime.now();
   final today = now.toIso8601String().split('T').first;
 
-  // 1) Busca fixtures de hoje para agendar tips
-  final fixturesUrl = Uri.parse(
-      '$_baseUrl$_fixturesPath?date=$today&timezone=America/Sao_Paulo'
+  // 1) busca as fixtures do dia
+  final fxResp = await http.get(
+    Uri.parse('$_baseUrl$_fixturesPath?date=$today&timezone=America/Sao_Paulo'),
+    headers: {'x-apisports-key': _apiKey},
   );
-  final fxResp = await http.get(fixturesUrl, headers: _headers);
   if (fxResp.statusCode != 200) {
-    stderr.writeln('Erro ao buscar fixtures (${fxResp.statusCode}): ${fxResp.body}');
-    exit(1);
+    stderr.writeln(
+      'Erro ao buscar fixtures (${fxResp.statusCode}): ${fxResp.body}',
+    );
+    return;
   }
 
   final List fxList = (jsonDecode(fxResp.body)['response'] as List);
   final fixtures = fxList.map((j) => Fixture.fromJson(j)).toList();
-
   if (fixtures.isEmpty) {
-    print('Não há jogos hoje. Encerrando scheduler.');
+    print('Não há jogos hoje. Encerrando.');
     return;
   }
 
   final sentTips = <int>{};
-  final sentRes  = <int>{};
+  final sentResults = <int>{};
 
-  // 2) Agenda envio de tip 30 minutos antes de cada jogo
-  for (final m in fixtures) {
-    final sendAt = m.date.subtract(const Duration(minutes: 30));
-    final diff   = sendAt.difference(now);
+  // 2) agenda envio de tip 30 minutos antes de cada jogo
+  for (final f in fixtures) {
+    final sendAt = f.date.subtract(const Duration(minutes: 30));
+    final diff = sendAt.difference(now);
     if (diff.isNegative) continue;
 
     Timer(diff, () async {
-      if (sentTips.contains(m.id)) return;
+      if (sentTips.contains(f.id)) return;
 
-      // Busca a previsão exata para esta partida
-      final prUrl = Uri.parse('$_baseUrl$_predsPath?fixture=${m.id}');
-      final prResp = await http.get(prUrl, headers: _headers);
-      if (prResp.statusCode != 200) {
-        stderr.writeln('Erro ao buscar previsão ${m.id}: ${prResp.statusCode}');
+      final prRes = await http.get(
+        Uri.parse('$_baseUrl$_predsPath?fixture=${f.id}'),
+        headers: {'x-apisports-key': _apiKey},
+      );
+      if (prRes.statusCode != 200) {
+        stderr.writeln(
+          'Erro ao buscar previsão (${f.id}): ${prRes.statusCode}',
+        );
         return;
       }
 
-      final List prList = (jsonDecode(prResp.body)['response'] as List);
-      if (prList.isEmpty) return; // sem previsão
+      final List prList = (jsonDecode(prRes.body)['response'] as List);
+      if (prList.isEmpty) return;
 
-      final predJson = prList.first['predictions'] as Map<String, dynamic>;
-      final mPred = Prediction.fromJson(predJson, m);
+      final predJson =
+          prList.first['predictions'] as Map<String, dynamic>? ?? {};
+      final pred = Prediction.fromJson(predJson, f);
+      final best = _getMelhorEntrada(pred);
 
-      final best = _getMelhorEntrada(mPred);
-      final msg = """
+      final msg =
+          """
 🎯 *BotFut – Tip*
-⚽ ${m.home} x ${m.away}
-📅 ${m.date.day}/${m.date.month} ⏰ ${_two(m.date.hour)}:${_two(m.date.minute)}
+⚽ ${f.home} x ${f.away}
+📅 ${_two(f.date.day)}/${_two(f.date.month)} ⏰ ${_two(f.date.hour)}:${_two(f.date.minute)}
 📌 Estratégia: ${best.label}
 """;
       await _sendTelegram(msg);
-      sentTips.add(m.id);
-      stdout.writeln('Tip enviada para jogo ${m.id} em ${DateTime.now()}');
+      sentTips.add(f.id);
+      print('Tip enviada para jogo ${f.id} em ${DateTime.now()}');
     });
   }
 
-  // 3) Polling a cada 5min para reportar resultados
-  final ticker = Timer.periodic(const Duration(minutes: 5), (timer) async {
-    final fxUrl  = Uri.parse(
-        '$_baseUrl$_fixturesPath?date=$today&timezone=America/Sao_Paulo'
+  // 3) polling de resultados a cada 10 minutos
+  final ticker = Timer.periodic(const Duration(minutes: 10), (timer) async {
+    final now2 = DateTime.now();
+    final fxRes = await http.get(
+      Uri.parse(
+        '$_baseUrl$_fixturesPath?date=$today&timezone=America/Sao_Paulo',
+      ),
+      headers: {'x-apisports-key': _apiKey},
     );
-    final fxResp = await http.get(fxUrl, headers: _headers);
-    if (fxResp.statusCode != 200) {
-      stderr.writeln('Erro ao buscar fixtures (${fxResp.statusCode})');
+    if (fxRes.statusCode != 200) {
+      stderr.writeln('Erro polling fixtures (${fxRes.statusCode})');
       return;
     }
 
-    final List newFx = (jsonDecode(fxResp.body)['response'] as List);
-    for (final m in fixtures) {
-      if (sentRes.contains(m.id) || m.date.isAfter(DateTime.now())) continue;
+    final List fxList2 = (jsonDecode(fxRes.body)['response'] as List);
+    for (final f in fixtures) {
+      if (sentResults.contains(f.id) || f.date.isAfter(now2)) continue;
 
-      final fxMatch = newFx.firstWhere(
-            (f) => (f['fixture']['id'] as int) == m.id,
+      final match = fxList2.firstWhere(
+        (m) => (m['fixture']?['id'] as int? ?? -1) == f.id,
         orElse: () => null,
       );
-      if (fxMatch == null) continue;
+      if (match == null) continue;
 
-      final status = fxMatch['fixture']['status']['short'] as String? ?? '';
+      final status = match['fixture']?['status']?['short'] as String? ?? '';
       if (!['FT', 'AET', 'PEN'].contains(status)) continue;
 
-      final hg    = (fxMatch['goals']['home'] ?? 0) as int;
-      final ag    = (fxMatch['goals']['away'] ?? 0) as int;
+      final hg = (match['goals']?['home'] ?? 0) as int;
+      final ag = (match['goals']?['away'] ?? 0) as int;
+      final total = hg + ag;
 
-      // Rebusca a previsão para avaliar o resultado
-      final prUrl2 = Uri.parse('$_baseUrl$_predsPath?fixture=${m.id}');
-      final prResp2 = await http.get(prUrl2, headers: _headers);
-      if (prResp2.statusCode != 200) continue;
-      final List prList2 = (jsonDecode(prResp2.body)['response'] as List);
+      // rebusca previsão para checar resultado
+      final prRes2 = await http.get(
+        Uri.parse('$_baseUrl$_predsPath?fixture=${f.id}'),
+        headers: {'x-apisports-key': _apiKey},
+      );
+      if (prRes2.statusCode != 200) continue;
+      final List prList2 = (jsonDecode(prRes2.body)['response'] as List);
       if (prList2.isEmpty) continue;
-      final predJson2 = prList2.first['predictions'] as Map<String, dynamic>;
-      final mPred2 = Prediction.fromJson(predJson2, m);
 
-      final best2 = _getMelhorEntrada(mPred2);
+      final predJson2 =
+          prList2.first['predictions'] as Map<String, dynamic>? ?? {};
+      final pred2 = Prediction.fromJson(predJson2, f);
+      final best2 = _getMelhorEntrada(pred2);
       final label = best2.label;
 
       String result = '⏳', reason = '';
-      final total = hg + ag;
-
       if (label.contains('Casa vence')) {
-        result = hg > ag ? '✅ GREEN' : '❌ RED';
-        reason = 'Mandante venceu ($hg x $ag)';
+        final ok = hg > ag;
+        result = ok ? '✅ GREEN' : '❌ RED';
+        reason = 'Mandante ${ok ? 'venceu' : 'não venceu'} ($hg x $ag)';
       } else if (label.contains('Fora vence')) {
-        result = ag > hg ? '✅ GREEN' : '❌ RED';
-        reason = 'Visitante venceu ($hg x $ag)';
+        final ok = ag > hg;
+        result = ok ? '✅ GREEN' : '❌ RED';
+        reason = 'Visitante ${ok ? 'venceu' : 'não venceu'} ($hg x $ag)';
       } else if (label.contains('Over 2.5')) {
-        result = total > 2.5 ? '✅ GREEN' : '❌ RED';
-        reason = 'Gols: $total';
+        final ok = total > 2.5;
+        result = ok ? '✅ GREEN' : '❌ RED';
+        reason = 'Total gols: $total';
       } else if (label.contains('Over 1.5')) {
-        result = total > 1.5 ? '✅ GREEN' : '❌ RED';
-        reason = 'Gols: $total';
+        final ok = total > 1.5;
+        result = ok ? '✅ GREEN' : '❌ RED';
+        reason = 'Total gols: $total';
       } else if (label.contains('Under 2.5')) {
-        result = total < 2.5 ? '✅ GREEN' : '❌ RED';
-        reason = 'Gols: $total';
+        final ok = total < 2.5;
+        result = ok ? '✅ GREEN' : '❌ RED';
+        reason = 'Total gols: $total';
       } else if (label.contains('Ambas Marcam')) {
         final ok = hg > 0 && ag > 0;
         result = ok ? '✅ GREEN' : '❌ RED';
         reason = 'Placar: $hg x $ag';
       } else if (label.contains('Dupla Chance')) {
         final txt = label.toLowerCase();
-        final ok = (txt.contains(m.home.toLowerCase()) && hg >= ag) ||
-            (txt.contains(m.away.toLowerCase()) && ag >= hg) ||
+        final ok =
+            (txt.contains(f.home.toLowerCase()) && hg >= ag) ||
+            (txt.contains(f.away.toLowerCase()) && ag >= hg) ||
             hg == ag;
         result = ok ? '✅ GREEN' : '❌ RED';
         reason = 'Final: $hg x $ag';
       }
 
-      final msg = """
+      final msg =
+          """
 📊 *BotFut – Resultado*
-⚽ ${m.home} $hg x $ag ${m.away}
+⚽ ${f.home} $hg x $ag ${f.away}
 📌 Estratégia: $label
 🎯 Resultado: $result
 📝 Motivo: $reason
 """;
       await _sendTelegram(msg);
-      sentRes.add(m.id);
-      stdout.writeln('Resultado enviado para jogo ${m.id} em ${DateTime.now()}');
+      sentResults.add(f.id);
+      print('Resultado enviado para jogo ${f.id} em ${DateTime.now()}');
     }
 
-    if (sentRes.length == fixtures.length) {
+    if (sentResults.length == fixtures.length) {
       timer.cancel();
+      print('Todos resultados enviados. Scheduler encerrado.');
     }
   });
-
-  // 4) Mantém o script vivo até 1h após o último jogo
-  final last = fixtures.map((m) => m.date).reduce((a, b) => a.isAfter(b) ? a : b);
-  final wait = last.difference(now) + const Duration(hours: 1);
-  await Future.delayed(wait);
-  if (ticker.isActive) ticker.cancel();
-  stdout.writeln('Scheduler finalizado em ${DateTime.now()}');
 }
 
+// ─── FUNÇÕES AUXILIARES ─────────────────────────────────────────────────────
 Future<void> _sendTelegram(String text) async {
   final resp = await http.post(
     Uri.parse(_telegramUrl),
-    body: {
-      'chat_id'   : _chatId,
-      'text'      : text,
-      'parse_mode': 'Markdown',
-    },
+    body: {'chat_id': _chatId, 'text': text, 'parse_mode': 'Markdown'},
   );
   if (resp.statusCode != 200) {
-    stderr.writeln('Erro ao enviar Telegram (${resp.statusCode}): ${resp.body}');
+    stderr.writeln(
+      'Erro ao enviar Telegram (${resp.statusCode}): ${resp.body}',
+    );
   }
 }
 
 String _two(int n) => n.toString().padLeft(2, '0');
 
-/// Modelo de Fixture do scheduler
+// ─── MODELOS ────────────────────────────────────────────────────────────────
 class Fixture {
   final int id;
   final String home, away;
@@ -209,30 +215,36 @@ class Fixture {
   });
 
   factory Fixture.fromJson(Map j) {
-    final fx = j['fixture'] as Map<String, dynamic>;
-    final teams = fx['teams'] as Map<String, dynamic>;
-    final date = DateTime.parse(fx['date'] as String).toLocal();
+    final fx = j['fixture'] as Map<String, dynamic>? ?? {};
+    final teams = fx['teams'] as Map<String, dynamic>? ?? {};
+    final dateStr = fx['date'] as String? ?? '';
+    final date = dateStr.isNotEmpty
+        ? DateTime.parse(dateStr).toLocal()
+        : DateTime.now();
 
     final preds = (j['predictions'] as List?) ?? [];
-    final firstPred = preds.isNotEmpty ? preds.first['predictions'] as Map<String, dynamic> : {};
-    final percent = firstPred['percent'] as Map<String, dynamic>? ?? {};
+    final rawPred = preds.isNotEmpty ? preds.first['predictions'] : null;
+    final predMap = rawPred is Map<String, dynamic>
+        ? rawPred
+        : <String, dynamic>{};
+    final perMap = predMap['percent'] as Map<String, dynamic>? ?? {};
+
     double _p(dynamic v) {
       if (v == null) return 0;
-      return double.tryParse(v.toString().replaceAll('%','').trim()) ?? 0;
+      return double.tryParse(v.toString().replaceAll('%', '').trim()) ?? 0;
     }
 
     return Fixture(
-      id      : fx['id'] as int,
-      home    : teams['home']['name'] as String,
-      away    : teams['away']['name'] as String,
-      date    : date,
-      homePct : _p(percent['home']),
-      awayPct : _p(percent['away']),
+      id: fx['id'] as int? ?? 0,
+      home: teams['home']?['name'] as String? ?? '',
+      away: teams['away']?['name'] as String? ?? '',
+      date: date,
+      homePct: _p(perMap['home']),
+      awayPct: _p(perMap['away']),
     );
   }
 }
 
-/// Prediction enriquecido para scheduler
 class Prediction {
   final int id;
   final double homePct, awayPct;
@@ -264,96 +276,90 @@ class Prediction {
   factory Prediction.fromJson(Map<String, dynamic> p, Fixture f) {
     double _p(dynamic v) {
       if (v == null) return 0;
-      return double.tryParse(v.toString().replaceAll('%','').trim()) ?? 0;
+      return double.tryParse(v.toString().replaceAll('%', '').trim()) ?? 0;
     }
 
-    final percent = p['percent'] as Map<String, dynamic>? ?? {};
-    final homePct = _p(percent['home']);
-    final awayPct = _p(percent['away']);
+    final pctMap = p['percent'] as Map<String, dynamic>? ?? {};
+    final hp = _p(pctMap['home']);
+    final ap = _p(pctMap['away']);
 
     final dcLabel = p['doubleChance']?['label'] as String?;
-    final dcPct   = _p(p['doubleChance']?['percentage']);
+    final dcPct = _p(p['doubleChance']?['percentage']);
 
-    final over15 = _p(p['under_over']?['goals']?['over_1_5']?['percentage']);
-
-    final o25Label = p['under_over']?['goals']?['over_2_5']?['label'] as String?;
-    final o25Pct   = _p(p['under_over']?['goals']?['over_2_5']?['percentage']);
-
-    final u25Label = p['under_over']?['goals']?['under_2_5']?['label'] as String?;
-    final u25Pct   = _p(p['under_over']?['goals']?['under_2_5']?['percentage']);
-
-    final bmLabel = p['goals']?['both']?['teams']?['label'] as String?;
-    final bmPct   = _p(p['goals']?['both']?['teams']?['percentage']);
+    final o15 = _p(p['under_over']?['goals']?['over_1_5']?['percentage']);
+    final o25Lab = p['under_over']?['goals']?['over_2_5']?['label'] as String?;
+    final o25Pct = _p(p['under_over']?['goals']?['over_2_5']?['percentage']);
+    final u25Lab = p['under_over']?['goals']?['under_2_5']?['label'] as String?;
+    final u25Pct = _p(p['under_over']?['goals']?['under_2_5']?['percentage']);
+    final bmLab = p['goals']?['both']?['teams']?['label'] as String?;
+    final bmPct = _p(p['goals']?['both']?['teams']?['percentage']);
 
     return Prediction(
-      id               : f.id,
-      homePct          : homePct,
-      awayPct          : awayPct,
-      doubleChance     : dcLabel,
-      doubleChancePct  : dcPct,
-      over15           : over15,
-      over25Label      : o25Label,
-      over25Pct        : o25Pct == 0 ? null : o25Pct,
-      under25Label     : u25Label,
-      under25Pct       : u25Pct == 0 ? null : u25Pct,
-      ambosMarcamLabel : bmLabel,
-      ambosMarcamPct   : bmPct == 0 ? null : bmPct,
+      id: f.id,
+      homePct: hp,
+      awayPct: ap,
+      doubleChance: dcLabel,
+      doubleChancePct: dcPct,
+      over15: o15,
+      over25Label: o25Lab,
+      over25Pct: o25Pct == 0 ? null : o25Pct,
+      under25Label: u25Lab,
+      under25Pct: u25Pct == 0 ? null : u25Pct,
+      ambosMarcamLabel: bmLab,
+      ambosMarcamPct: bmPct == 0 ? null : bmPct,
     );
   }
 }
 
-/// Representa uma sugestão de entrada
 class _EntradaSugestao {
   final String label;
   final double pct;
   _EntradaSugestao(this.label, this.pct);
 }
 
-/// Escolhe a melhor estratégia, exatamente como na sua UI
 _EntradaSugestao _getMelhorEntrada(Prediction m) {
-  final List<_EntradaSugestao> op = [];
+  final opts = <_EntradaSugestao>[];
 
   if ((m.doubleChance ?? '').isNotEmpty && m.doubleChancePct > 70) {
-    op.add(_EntradaSugestao("Dupla Chance: ${m.doubleChance}", m.doubleChancePct));
+    opts.add(
+      _EntradaSugestao("Dupla Chance: ${m.doubleChance}", m.doubleChancePct),
+    );
   }
   if ((m.over25Label ?? '').isNotEmpty && (m.over25Pct ?? 0) > 70) {
-    op.add(_EntradaSugestao("Over 2.5", m.over25Pct!));
+    opts.add(_EntradaSugestao("Over 2.5", m.over25Pct!));
   }
   if ((m.under25Label ?? '').isNotEmpty && (m.under25Pct ?? 0) > 70) {
-    op.add(_EntradaSugestao("Under 2.5", m.under25Pct!));
+    opts.add(_EntradaSugestao("Under 2.5", m.under25Pct!));
   }
   if (m.over15 > 70) {
-    op.add(_EntradaSugestao("Over 1.5", m.over15));
+    opts.add(_EntradaSugestao("Over 1.5", m.over15));
   }
   if ((m.ambosMarcamLabel ?? '').isNotEmpty && (m.ambosMarcamPct ?? 0) > 70) {
-    op.add(_EntradaSugestao("Ambas Marcam", m.ambosMarcamPct!));
+    opts.add(_EntradaSugestao("Ambas Marcam", m.ambosMarcamPct!));
   }
   if (m.homePct > 70) {
-    op.add(_EntradaSugestao("Casa vence", m.homePct));
+    opts.add(_EntradaSugestao("Casa vence", m.homePct));
   }
   if (m.awayPct > 70) {
-    op.add(_EntradaSugestao("Fora vence", m.awayPct));
+    opts.add(_EntradaSugestao("Fora vence", m.awayPct));
   }
 
-  if (op.isEmpty) {
-    final fb = <_EntradaSugestao>[
+  if (opts.isEmpty) {
+    final fallback = <_EntradaSugestao>[
       if ((m.doubleChance ?? '').isNotEmpty)
         _EntradaSugestao("Dupla Chance: ${m.doubleChance}", m.doubleChancePct),
-      if (m.over25Pct != null)
-        _EntradaSugestao("Over 2.5", m.over25Pct!),
-      if (m.under25Pct != null)
-        _EntradaSugestao("Under 2.5", m.under25Pct!),
-      if (m.over15 > 0)
-        _EntradaSugestao("Over 1.5", m.over15),
+      if (m.over25Pct != null) _EntradaSugestao("Over 2.5", m.over25Pct!),
+      if (m.under25Pct != null) _EntradaSugestao("Under 2.5", m.under25Pct!),
+      if (m.over15 > 0) _EntradaSugestao("Over 1.5", m.over15),
       if (m.ambosMarcamPct != null)
         _EntradaSugestao("Ambas Marcam", m.ambosMarcamPct!),
       _EntradaSugestao("Casa vence", m.homePct),
       _EntradaSugestao("Fora vence", m.awayPct),
     ];
-    fb.sort((a, b) => b.pct.compareTo(a.pct));
-    return fb.first;
+    fallback.sort((a, b) => b.pct.compareTo(a.pct));
+    return fallback.first;
   }
 
-  op.sort((a, b) => b.pct.compareTo(a.pct));
-  return op.first;
+  opts.sort((a, b) => b.pct.compareTo(a.pct));
+  return opts.first;
 }

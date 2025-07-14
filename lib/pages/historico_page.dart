@@ -46,15 +46,15 @@ class _HistoricoPageState extends State<HistoricoPage> {
     final preRaw = prefs.getString('prelive_$data');
     final preList = preRaw != null
         ? (jsonDecode(preRaw) as List)
-        .map((e) => FixturePrediction.fromJson(e))
-        .toList()
+              .map((e) => FixturePrediction.fromJson(e))
+              .toList()
         : <FixturePrediction>[];
 
     final reportRaw = prefs.getString('report_$data');
     final reportList = reportRaw != null
         ? (jsonDecode(reportRaw) as List)
-        .map((e) => Map<String, dynamic>.from(e))
-        .toList()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList()
         : <Map<String, dynamic>>[];
 
     setState(() {
@@ -66,8 +66,8 @@ class _HistoricoPageState extends State<HistoricoPage> {
 
   Widget _buildResumo(FixturePrediction m) {
     final encontrado = _reportDoDia.firstWhere(
-          (r) =>
-      (r['match'] as String).contains(m.home) &&
+      (r) =>
+          (r['match'] as String).contains(m.home) &&
           (r['match'] as String).contains(m.away),
       orElse: () => {},
     );
@@ -103,8 +103,14 @@ class _HistoricoPageState extends State<HistoricoPage> {
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(res1.toString(), style: TextStyle(color: cor1, fontWeight: FontWeight.bold)),
-            Text(res2.toString(), style: TextStyle(color: cor2, fontWeight: FontWeight.bold)),
+            Text(
+              res1.toString(),
+              style: TextStyle(color: cor1, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              res2.toString(),
+              style: TextStyle(color: cor2, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         isThreeLine: true,
@@ -147,11 +153,13 @@ class _HistoricoPageState extends State<HistoricoPage> {
           if (_dataSelecionada != null)
             Expanded(
               child: _preLiveDoDia.isEmpty
-                  ? const Center(child: Text('Nenhum jogo encontrado nesse dia.'))
+                  ? const Center(
+                      child: Text('Nenhum jogo encontrado nesse dia.'),
+                    )
                   : ListView.builder(
-                itemCount: _preLiveDoDia.length,
-                itemBuilder: (ctx, i) => _buildResumo(_preLiveDoDia[i]),
-              ),
+                      itemCount: _preLiveDoDia.length,
+                      itemBuilder: (ctx, i) => _buildResumo(_preLiveDoDia[i]),
+                    ),
             ),
         ],
       ),

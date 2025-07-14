@@ -25,7 +25,9 @@ class _ReportPageState extends State<ReportPage> {
     _initFuture = _prepararRelatorio(widget.future);
   }
 
-  Future<void> _prepararRelatorio(Future<List<FixturePrediction>> future) async {
+  Future<void> _prepararRelatorio(
+    Future<List<FixturePrediction>> future,
+  ) async {
     final preLive = await future;
     final fixtures = await FootballApiService.getTodayFixtures();
 
@@ -35,7 +37,10 @@ class _ReportPageState extends State<ReportPage> {
     const encerrados = ['FT', 'AET', 'PEN'];
 
     for (final tip in preLive) {
-      final fx = fixtures.firstWhere((f) => f['fixture']['id'] == tip.id, orElse: () => null);
+      final fx = fixtures.firstWhere(
+        (f) => f['fixture']['id'] == tip.id,
+        orElse: () => null,
+      );
       if (fx == null) continue;
 
       final status = fx['fixture']['status']['short']?.toString() ?? '';
@@ -59,27 +64,34 @@ class _ReportPageState extends State<ReportPage> {
       String motivo1 = '';
       if (principal.label == 'Casa vence') {
         res1 = hG > aG ? '✅ GREEN' : '❌ RED';
-        motivo1 = hG > aG ? 'Mandante venceu ($hG x $aG)' : 'Mandante não venceu ($hG x $aG)';
+        motivo1 = hG > aG
+            ? 'Mandante venceu ($hG x $aG)'
+            : 'Mandante não venceu ($hG x $aG)';
       } else {
         res1 = aG > hG ? '✅ GREEN' : '❌ RED';
-        motivo1 = aG > hG ? 'Visitante venceu ($hG x $aG)' : 'Visitante não venceu ($hG x $aG)';
+        motivo1 = aG > hG
+            ? 'Visitante venceu ($hG x $aG)'
+            : 'Visitante não venceu ($hG x $aG)';
       }
 
       // Validação complementar
       String res2 = '❌ RED';
       String motivo2 = '';
       if (extra.contains('Empate')) {
-        final ok = hG == aG ||
+        final ok =
+            hG == aG ||
             (extra.contains(home) && hG >= aG) ||
             (extra.contains(away) && aG >= hG);
         res2 = ok ? '✅ GREEN' : '❌ RED';
         motivo2 = 'Dupla chance: $extra ($hG x $aG)';
       } else if (extra.contains('Over')) {
-        final over = double.tryParse(extra.replaceAll(RegExp(r'[^\d\.]'), '')) ?? 2.5;
+        final over =
+            double.tryParse(extra.replaceAll(RegExp(r'[^\d\.]'), '')) ?? 2.5;
         res2 = totalGols > over ? '✅ GREEN' : '❌ RED';
         motivo2 = 'Total de gols: $totalGols > $over';
       } else if (extra.contains('Under')) {
-        final under = double.tryParse(extra.replaceAll(RegExp(r'[^\d\.]'), '')) ?? 2.5;
+        final under =
+            double.tryParse(extra.replaceAll(RegExp(r'[^\d\.]'), '')) ?? 2.5;
         res2 = totalGols < under ? '✅ GREEN' : '❌ RED';
         motivo2 = 'Total de gols: $totalGols < $under';
       } else {
@@ -135,8 +147,10 @@ class _ReportPageState extends State<ReportPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (_pending.isNotEmpty) ...[
-                  const Text('⏳ Aguardando confirmação',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const Text(
+                    '⏳ Aguardando confirmação',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 8),
                   ..._pending.map((m) {
                     final lbl = _getMelhorEntrada(m).label;
@@ -144,14 +158,18 @@ class _ReportPageState extends State<ReportPage> {
                       margin: const EdgeInsets.symmetric(vertical: 4),
                       child: ListTile(
                         title: Text("${m.home} x ${m.away}"),
-                        subtitle: Text("📌 $lbl\n📌 ${m.secondaryAdvice ?? '–'}"),
+                        subtitle: Text(
+                          "📌 $lbl\n📌 ${m.secondaryAdvice ?? '–'}",
+                        ),
                       ),
                     );
                   }),
                   const Divider(height: 24),
                 ],
-                const Text('✅ Jogos finalizados',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Text(
+                  '✅ Jogos finalizados',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 8),
                 ..._finished.map((r) {
                   final isGreen = r['result'] == '✅ GREEN';
@@ -160,19 +178,32 @@ class _ReportPageState extends State<ReportPage> {
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     child: ListTile(
                       title: Text("📋 ${r['category']} + ${r['extra']}"),
-                      subtitle: Text("${r['match']}\n📝 ${r['reason']}\n📝 ${r['reason_extra']}"),
+                      subtitle: Text(
+                        "${r['match']}\n📝 ${r['reason']}\n📝 ${r['reason_extra']}",
+                      ),
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(r['result']!,
-                              style: TextStyle(fontWeight: FontWeight.bold, color: isGreen ? Colors.green : Colors.red)),
-                          Text(r['result_extra']!,
-                              style: TextStyle(fontWeight: FontWeight.bold, color: isGreen2 ? Colors.green : Colors.red)),
+                          Text(
+                            r['result']!,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isGreen ? Colors.green : Colors.red,
+                            ),
+                          ),
+                          Text(
+                            r['result_extra']!,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isGreen2 ? Colors.green : Colors.red,
+                            ),
+                          ),
                         ],
                       ),
                       isThreeLine: true,
                       onTap: () {
-                        final msg = """
+                        final msg =
+                            """
 📊 *BotFut – Relatório*
 🏟️ ${r['match']}
 📌 Dica principal: ${r['category']} – ${r['result']}
@@ -197,7 +228,11 @@ class _ReportPageState extends State<ReportPage> {
                                   Navigator.pop(context);
                                   await TelegramService.sendMessage(msg);
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("Relatório enviado ao Telegram!")),
+                                    const SnackBar(
+                                      content: Text(
+                                        "Relatório enviado ao Telegram!",
+                                      ),
+                                    ),
                                   );
                                 },
                               ),

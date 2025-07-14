@@ -19,7 +19,9 @@ class _MultiplaPageState extends State<MultiplaPage> {
     _futureMultipla = _gerarMultipla(widget.future);
   }
 
-  Future<List<_EntradaMultipla>> _gerarMultipla(Future<List<FixturePrediction>> future) async {
+  Future<List<_EntradaMultipla>> _gerarMultipla(
+    Future<List<FixturePrediction>> future,
+  ) async {
     final lista = await future;
 
     final entradas = <_EntradaMultipla>[];
@@ -29,32 +31,38 @@ class _MultiplaPageState extends State<MultiplaPage> {
 
       // Estratégia: Dupla Chance
       if (m.doubleChance.isNotEmpty && m.doubleChancePct > 70) {
-        sugestoes.add(_EntradaMultipla(
-          partida: "${m.home} x ${m.away}",
-          tipo: "Dupla Chance",
-          label: m.doubleChance,
-          prob: m.doubleChancePct,
-        ));
+        sugestoes.add(
+          _EntradaMultipla(
+            partida: "${m.home} x ${m.away}",
+            tipo: "Dupla Chance",
+            label: m.doubleChance,
+            prob: m.doubleChancePct,
+          ),
+        );
       }
 
       // Estratégia: Over 2.5
       if (m.over25Label != null && (m.over25Pct ?? 0) > 70) {
-        sugestoes.add(_EntradaMultipla(
-          partida: "${m.home} x ${m.away}",
-          tipo: "Over 2.5",
-          label: m.over25Label!,
-          prob: m.over25Pct!,
-        ));
+        sugestoes.add(
+          _EntradaMultipla(
+            partida: "${m.home} x ${m.away}",
+            tipo: "Over 2.5",
+            label: m.over25Label!,
+            prob: m.over25Pct!,
+          ),
+        );
       }
 
       // Estratégia: Under 2.5
       if (m.under25Label != null && (m.under25Pct ?? 0) > 70) {
-        sugestoes.add(_EntradaMultipla(
-          partida: "${m.home} x ${m.away}",
-          tipo: "Under 2.5",
-          label: m.under25Label!,
-          prob: m.under25Pct!,
-        ));
+        sugestoes.add(
+          _EntradaMultipla(
+            partida: "${m.home} x ${m.away}",
+            tipo: "Under 2.5",
+            label: m.under25Label!,
+            prob: m.under25Pct!,
+          ),
+        );
       }
 
       // Pegamos a melhor sugestão daquele jogo
@@ -87,12 +95,15 @@ class _MultiplaPageState extends State<MultiplaPage> {
 
         final lista = snap.data ?? [];
         if (lista.length < 2) {
-          return const Center(child: Text('Poucos jogos disponíveis para múltipla.'));
+          return const Center(
+            child: Text('Poucos jogos disponíveis para múltipla.'),
+          );
         }
 
         final odds = lista.map((e) => _probToOdd(e.prob)).toList();
         final oddFinal = odds.fold(1.0, (a, b) => a * b);
-        final probFinal = lista.map((e) => e.prob / 100).fold(1.0, (a, b) => a * b) * 100;
+        final probFinal =
+            lista.map((e) => e.prob / 100).fold(1.0, (a, b) => a * b) * 100;
 
         return Column(
           children: [
@@ -100,7 +111,10 @@ class _MultiplaPageState extends State<MultiplaPage> {
               padding: const EdgeInsets.all(12),
               child: Text(
                 "🎯 Múltipla – Estratégias Variadas",
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             Expanded(
@@ -109,17 +123,27 @@ class _MultiplaPageState extends State<MultiplaPage> {
                 itemBuilder: (ctx, i) {
                   final e = lista[i];
                   final odd = _probToOdd(e.prob);
-                  final cor = e.prob >= 80 ? Colors.green.shade800 : Colors.orange.shade700;
+                  final cor = e.prob >= 80
+                      ? Colors.green.shade800
+                      : Colors.orange.shade700;
 
                   return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     child: ListTile(
                       title: Text("⚽ ${e.partida}"),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("📌 ${e.tipo}: ${e.label}",
-                              style: TextStyle(color: cor, fontWeight: FontWeight.bold)),
+                          Text(
+                            "📌 ${e.tipo}: ${e.label}",
+                            style: TextStyle(
+                              color: cor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                       trailing: Text("🧮 ${odd.toStringAsFixed(2)}"),
@@ -132,15 +156,26 @@ class _MultiplaPageState extends State<MultiplaPage> {
               padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
-                  Text("💰 Odd combinada: ${oddFinal.toStringAsFixed(2)}",
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  Text("🎯 Probabilidade estimada: ${probFinal.toStringAsFixed(1)}%",
-                      style: const TextStyle(fontSize: 14, color: Colors.blueGrey)),
+                  Text(
+                    "💰 Odd combinada: ${oddFinal.toStringAsFixed(2)}",
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    "🎯 Probabilidade estimada: ${probFinal.toStringAsFixed(1)}%",
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.blueGrey,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   ElevatedButton.icon(
                     icon: const Icon(Icons.send),
                     label: const Text("Enviar múltipla ao Telegram"),
-                    onPressed: () => _enviarMultipla(lista, oddFinal, probFinal),
+                    onPressed: () =>
+                        _enviarMultipla(lista, oddFinal, probFinal),
                   ),
                 ],
               ),
@@ -151,7 +186,11 @@ class _MultiplaPageState extends State<MultiplaPage> {
     );
   }
 
-  void _enviarMultipla(List<_EntradaMultipla> lista, double oddFinal, double probFinal) {
+  void _enviarMultipla(
+    List<_EntradaMultipla> lista,
+    double oddFinal,
+    double probFinal,
+  ) {
     final buf = StringBuffer();
     buf.writeln("🔥 BotFut – Múltipla do Dia 🔥");
     buf.writeln("🎯 Estratégia: Combinada");
@@ -166,12 +205,14 @@ class _MultiplaPageState extends State<MultiplaPage> {
 
     buf.writeln("---");
     buf.writeln("📈 Odd combinada: 💰 ${oddFinal.toStringAsFixed(2)}");
-    buf.writeln("🎲 Probabilidade Estimada: 🎯 ${probFinal.toStringAsFixed(1)}%");
+    buf.writeln(
+      "🎲 Probabilidade Estimada: 🎯 ${probFinal.toStringAsFixed(1)}%",
+    );
 
     TelegramService.sendMessage(buf.toString());
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Múltipla enviada!")),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Múltipla enviada!")));
   }
 }
 

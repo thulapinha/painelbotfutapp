@@ -63,8 +63,11 @@ class _HomePageState extends State<HomePage> {
               Card(
                 color: Colors.green.shade50,
                 child: ListTile(
-                  leading:
-                  const Icon(Icons.flash_on, size: 36, color: Colors.green),
+                  leading: const Icon(
+                    Icons.flash_on,
+                    size: 36,
+                    color: Colors.green,
+                  ),
                   title: Text("${proximo.home} x ${proximo.away}"),
                   subtitle: Text("Dica: ${proximo.advice}"),
                   trailing: Text(
@@ -79,10 +82,12 @@ class _HomePageState extends State<HomePage> {
                   title: Text("Próximos Jogos (${futuros.length})"),
                   children: futuros
                       .take(5)
-                      .map((m) => ListTile(
-                    title: Text("${m.home} x ${m.away}"),
-                    subtitle: Text(m.advice),
-                  ))
+                      .map(
+                        (m) => ListTile(
+                          title: Text("${m.home} x ${m.away}"),
+                          subtitle: Text(m.advice),
+                        ),
+                      )
                       .toList(),
                 ),
               ),
@@ -93,10 +98,12 @@ class _HomePageState extends State<HomePage> {
                     leading: const Icon(Icons.play_circle_fill),
                     title: Text("Ao Vivo (${aoVivo.length})"),
                     children: aoVivo
-                        .map((m) => ListTile(
-                      title: Text("${m.home} x ${m.away}"),
-                      subtitle: Text("⏱️ ${m.elapsedTime ?? '--'} min"),
-                    ))
+                        .map(
+                          (m) => ListTile(
+                            title: Text("${m.home} x ${m.away}"),
+                            subtitle: Text("⏱️ ${m.elapsedTime ?? '--'} min"),
+                          ),
+                        )
                         .toList(),
                   ),
                 ),
@@ -111,13 +118,12 @@ class _HomePageState extends State<HomePage> {
                       label: const Text("Atualizar"),
                       onPressed: () {
                         setState(() {
-                          _preLiveFuture =
-                              PreLiveService.getPreLive(forceRefresh: true);
+                          _preLiveFuture = PreLiveService.getPreLive(
+                            forceRefresh: true,
+                          );
                           _pages[0] = _buildDashboard();
-                          _pages[1] =
-                              PreLivePage(future: _preLiveFuture);
-                          _pages[2] =
-                              mp.MultiplaPage(future: _preLiveFuture);
+                          _pages[1] = PreLivePage(future: _preLiveFuture);
+                          _pages[2] = mp.MultiplaPage(future: _preLiveFuture);
                           _pages[3] = LivePage(future: _preLiveFuture);
                         });
                       },
@@ -129,7 +135,8 @@ class _HomePageState extends State<HomePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const HistoricoPage()),
+                            builder: (_) => const HistoricoPage(),
+                          ),
                         );
                       },
                     ),
@@ -139,8 +146,7 @@ class _HomePageState extends State<HomePage> {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                              builder: (_) => const StatsPage()),
+                          MaterialPageRoute(builder: (_) => const StatsPage()),
                         );
                       },
                     ),
@@ -151,8 +157,7 @@ class _HomePageState extends State<HomePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                ReportPage(future: _preLiveFuture),
+                            builder: (_) => ReportPage(future: _preLiveFuture),
                           ),
                         );
                       },
@@ -178,14 +183,19 @@ class _HomePageState extends State<HomePage> {
         selectedItemColor: Colors.green.shade800,
         unselectedItemColor: Colors.grey.shade600,
         items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard), label: 'Home'),
+            icon: Icon(Icons.schedule),
+            label: 'Pré-Live',
+          ),
           BottomNavigationBarItem(
-              icon: Icon(Icons.schedule), label: 'Pré-Live'),
+            icon: Icon(Icons.lightbulb),
+            label: 'Múltipla',
+          ),
           BottomNavigationBarItem(
-              icon: Icon(Icons.lightbulb), label: 'Múltipla'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.play_circle), label: 'Ao Vivo'),
+            icon: Icon(Icons.play_circle),
+            label: 'Ao Vivo',
+          ),
         ],
         onTap: (i) => setState(() => _currentIndex = i),
       ),

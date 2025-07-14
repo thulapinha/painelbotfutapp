@@ -2,7 +2,10 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class StorageService {
-  static Future<void> saveJsonList(String key, List<Map<String, dynamic>> list) async {
+  static Future<void> saveJsonList(
+    String key,
+    List<Map<String, dynamic>> list,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = jsonEncode(list);
     await prefs.setString(key, jsonString);
