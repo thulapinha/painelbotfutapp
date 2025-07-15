@@ -60,6 +60,44 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "🔎 Legenda de Confiança nas Tips",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.circle, color: Colors.green, size: 14),
+                          const SizedBox(width: 6),
+                          const Text("Alta confiança (≥ 80%)"),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Icon(Icons.circle, color: Colors.orange, size: 14),
+                          const SizedBox(width: 6),
+                          const Text("Confiança moderada (65–79%)"),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Icon(Icons.circle, color: Colors.grey, size: 14),
+                          const SizedBox(width: 6),
+                          const Text("Baixa ou ausente (< 65%)"),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
               Card(
                 color: Colors.green.shade50,
                 child: ListTile(
