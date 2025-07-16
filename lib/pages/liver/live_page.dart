@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/fixture_prediction.dart';
-import '../services/pre_live_service.dart';
-import '../services/football_api_service.dart';
+import '../../models/fixture_prediction.dart';
+import '../../services/pre_live_service.dart';
+import '../../services/football_api_service.dart';
 
 class LivePage extends StatefulWidget {
   final Future<List<FixturePrediction>> future;

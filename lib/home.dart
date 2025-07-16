@@ -1,13 +1,12 @@
-// lib/home.dart
 import 'package:flutter/material.dart';
 import 'package:botfutapp/models/fixture_prediction.dart';
 import 'package:botfutapp/services/pre_live_service.dart';
-import 'package:botfutapp/pages/pre_live_page.dart';
-import 'package:botfutapp/pages/multipla_page.dart' as mp;
-import 'package:botfutapp/pages/live_page.dart';
-import 'package:botfutapp/pages/historico_page.dart';
-import 'package:botfutapp/pages/stats_page.dart';
-import 'package:botfutapp/pages/report_page.dart';
+import 'package:botfutapp/pages/pre_live/pre_live_page.dart';
+import 'package:botfutapp/pages/multiplas/multipla_page.dart' as mp;
+import 'package:botfutapp/pages/liver/live_page.dart';
+import 'package:botfutapp/pages/confirmacao/historico_page.dart';
+import 'package:botfutapp/pages/grafico/stats_page.dart';
+import 'package:botfutapp/pages/confirmacao/report_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -51,7 +50,6 @@ class _HomePageState extends State<HomePage> {
           final s = m.statusShort ?? '';
           return ['1H', '2H', 'LIVE', 'HT'].contains(s);
         }).toList();
-
         list.sort((a, b) => a.date.compareTo(b.date));
         final proximo = futuros.isNotEmpty ? futuros.first : list.first;
 
@@ -63,7 +61,7 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 12),
               Card(
                 child: Padding(
-                  padding: EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -97,7 +95,6 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-
               Card(
                 color: Colors.green.shade50,
                 child: ListTile(
@@ -122,10 +119,10 @@ class _HomePageState extends State<HomePage> {
                       .take(5)
                       .map(
                         (m) => ListTile(
-                          title: Text("${m.home} x ${m.away}"),
-                          subtitle: Text(m.advice),
-                        ),
-                      )
+                      title: Text("${m.home} x ${m.away}"),
+                      subtitle: Text(m.advice),
+                    ),
+                  )
                       .toList(),
                 ),
               ),
@@ -138,10 +135,10 @@ class _HomePageState extends State<HomePage> {
                     children: aoVivo
                         .map(
                           (m) => ListTile(
-                            title: Text("${m.home} x ${m.away}"),
-                            subtitle: Text("⏱️ ${m.elapsedTime ?? '--'} min"),
-                          ),
-                        )
+                        title: Text("${m.home} x ${m.away}"),
+                        subtitle: Text("⏱️ ${m.elapsedTime ?? '--'} min"),
+                      ),
+                    )
                         .toList(),
                   ),
                 ),
@@ -184,7 +181,7 @@ class _HomePageState extends State<HomePage> {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const StatsPage()),
+                          MaterialPageRoute(builder: (_) => StatsPage()),
                         );
                       },
                     ),
@@ -195,11 +192,14 @@ class _HomePageState extends State<HomePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => ReportPage(future: _preLiveFuture),
+                            builder: (_) => ReportPage(
+                              todosJogos: list,
+                            ),
                           ),
                         );
                       },
                     ),
+
                   ],
                 ),
               ),
@@ -222,18 +222,9 @@ class _HomePageState extends State<HomePage> {
         unselectedItemColor: Colors.grey.shade600,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.schedule),
-            label: 'Pré-Live',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.lightbulb),
-            label: 'Múltipla',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.play_circle),
-            label: 'Ao Vivo',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.schedule), label: 'Pré-Live'),
+          BottomNavigationBarItem(icon: Icon(Icons.lightbulb), label: 'Múltipla'),
+          BottomNavigationBarItem(icon: Icon(Icons.play_circle), label: 'Ao Vivo'),
         ],
         onTap: (i) => setState(() => _currentIndex = i),
       ),

@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/fixture_prediction.dart';
+import '../../models/fixture_prediction.dart';
+import '../../utils/validator_util.dart';
 
 class HistoricoPage extends StatefulWidget {
   const HistoricoPage({Key? key}) : super(key: key);
@@ -14,7 +15,6 @@ class _HistoricoPageState extends State<HistoricoPage> {
   List<String> _datasDisponiveis = [];
   String? _dataSelecionada;
   List<FixturePrediction> _preLiveDoDia = [];
-  List<Map<String, dynamic>> _reportDoDia = [];
 
   @override
   void initState() {
@@ -28,9 +28,6 @@ class _HistoricoPageState extends State<HistoricoPage> {
 
     final datas = <String>{};
     for (var k in keys) {
-      if (k.startsWith('report_')) {
-        datas.add(k.replaceFirst('report_', ''));
-      }
       if (k.startsWith('prelive_')) {
         datas.add(k.replaceFirst('prelive_', ''));
       }
@@ -42,75 +39,62 @@ class _HistoricoPageState extends State<HistoricoPage> {
 
   Future<void> _carregarDadosDoDia(String data) async {
     final prefs = await SharedPreferences.getInstance();
-
     final preRaw = prefs.getString('prelive_$data');
     final preList = preRaw != null
         ? (jsonDecode(preRaw) as List)
-              .map((e) => FixturePrediction.fromJson(e))
-              .toList()
+        .map((e) => FixturePrediction.fromJson(e))
+        .where((m) => m.statusShort == "FT")
+        .toList()
         : <FixturePrediction>[];
-
-    final reportRaw = prefs.getString('report_$data');
-    final reportList = reportRaw != null
-        ? (jsonDecode(reportRaw) as List)
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList()
-        : <Map<String, dynamic>>[];
 
     setState(() {
       _dataSelecionada = data;
       _preLiveDoDia = preList;
-      _reportDoDia = reportList;
     });
   }
 
   Widget _buildResumo(FixturePrediction m) {
-    final encontrado = _reportDoDia.firstWhere(
-      (r) =>
-          (r['match'] as String).contains(m.home) &&
-          (r['match'] as String).contains(m.away),
-      orElse: () => {},
+    final principal = _getMelhorEntrada(m);
+    final dica = m.advice;
+
+    final golsCasaReal = m.golsCasa;
+    final golsForaReal = m.golsFora;
+
+    final casa = golsCasaReal ?? m.xgHome.toInt();
+    final fora = golsForaReal ?? m.xgAway.toInt();
+    final fonte = (golsCasaReal != null && golsForaReal != null) ? "✅FT" : "🟢XG";
+
+    final statusPrincipal = validarTip(
+      estrategia: principal.label,
+      golsCasa: casa,
+      golsFora: fora,
+      nomeCasa: m.home,
+      nomeFora: m.away,
+    );
+    final statusDica = validarTip(
+      estrategia: dica,
+      golsCasa: casa,
+      golsFora: fora,
+      nomeCasa: m.home,
+      nomeFora: m.away,
     );
 
-    final principal = _getMelhorEntrada(m);
-    final extra = m.secondaryAdvice;
+    final cor1 = _getCor(statusPrincipal);
+    final cor2 = _getCor(statusDica);
     final match = "${m.home} x ${m.away}";
-
-    final res1 = encontrado['result'] ?? '⏳';
-    final motivo1 = encontrado['reason'] ?? 'Aguardando confirmação';
-    final res2 = encontrado['result_extra'] ?? '⏳';
-    final motivo2 = encontrado['reason_extra'] ?? '';
-
-    final cor1 = res1.toString().contains('GREEN')
-        ? Colors.green
-        : res1.toString().contains('RED')
-        ? Colors.red
-        : Colors.grey;
-
-    final cor2 = res2.toString().contains('GREEN')
-        ? Colors.green
-        : res2.toString().contains('RED')
-        ? Colors.red
-        : Colors.grey;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: ListTile(
         title: Text("🏟️ $match"),
         subtitle: Text(
-          "📌 Principal: ${principal.label} (${res1})\n📝 $motivo1\n📌 Extra: $extra (${res2})${motivo2.isNotEmpty ? "\n📝 $motivo2" : ""}",
+          "$fonte\n📌 Principal: ${principal.label} ($statusPrincipal)\n📌 Dica: $dica ($statusDica)",
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              res1.toString(),
-              style: TextStyle(color: cor1, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              res2.toString(),
-              style: TextStyle(color: cor2, fontWeight: FontWeight.bold),
-            ),
+            Text(statusPrincipal, style: TextStyle(color: cor1)),
+            Text(statusDica, style: TextStyle(color: cor2)),
           ],
         ),
         isThreeLine: true,
@@ -119,9 +103,37 @@ class _HistoricoPageState extends State<HistoricoPage> {
   }
 
   _EntradaSugestao _getMelhorEntrada(FixturePrediction m) {
-    final op = {'Casa vence': m.homePct, 'Fora vence': m.awayPct};
-    final best = op.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    final op = {
+      'Casa vence': m.homePct,
+      'Empate': (100 - m.homePct - m.awayPct).clamp(0, 100).toDouble(),
+      'Fora vence': m.awayPct,
+      if (m.doubleChance.isNotEmpty)
+        'Dupla Chance: ${m.doubleChance}': m.doubleChancePct,
+      if (m.over25Label != null && m.over25Pct != null)
+        m.over25Label!: m.over25Pct!,
+      if (m.under25Label != null && m.under25Pct != null)
+        m.under25Label!: m.under25Pct!,
+      if (m.ambosMarcamLabel != null && m.ambosMarcamPct != null)
+        m.ambosMarcamLabel!: m.ambosMarcamPct!,
+      'Over 1.5': m.over15,
+    };
+
+    final sorted = op.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final best = sorted.first;
+
     return _EntradaSugestao(best.key, best.value);
+  }
+
+  Color _getCor(String status) {
+    switch (status) {
+      case "GREEN":
+        return Colors.green.shade800;
+      case "RED":
+        return Colors.red.shade700;
+      default:
+        return Colors.grey.shade600;
+    }
   }
 
   @override
@@ -153,13 +165,11 @@ class _HistoricoPageState extends State<HistoricoPage> {
           if (_dataSelecionada != null)
             Expanded(
               child: _preLiveDoDia.isEmpty
-                  ? const Center(
-                      child: Text('Nenhum jogo encontrado nesse dia.'),
-                    )
+                  ? const Center(child: Text('Nenhum jogo encontrado nesse dia.'))
                   : ListView.builder(
-                      itemCount: _preLiveDoDia.length,
-                      itemBuilder: (ctx, i) => _buildResumo(_preLiveDoDia[i]),
-                    ),
+                itemCount: _preLiveDoDia.length,
+                itemBuilder: (ctx, i) => _buildResumo(_preLiveDoDia[i]),
+              ),
             ),
         ],
       ),

@@ -32,6 +32,10 @@ class FixturePrediction {
   final String? ambosMarcamLabel;
   final double? ambosMarcamPct;
 
+  // ✅ Resultado final do jogo
+  final int? golsCasa;
+  final int? golsFora;
+
   FixturePrediction({
     required this.id,
     required this.home,
@@ -55,6 +59,8 @@ class FixturePrediction {
     this.under25Pct,
     this.ambosMarcamLabel,
     this.ambosMarcamPct,
+    this.golsCasa,
+    this.golsFora,
   });
 
   factory FixturePrediction.fromApiJson(
@@ -69,12 +75,9 @@ class FixturePrediction {
       return double.tryParse(v.toString().replaceAll('%', '').trim()) ?? 0;
     }
 
-    // Pega texto da dica e sua confiança, se a API fornecer
     final adviceText = (p['advice'] as String?) ?? '';
-    final advicePctVal =
-    parsePct(p['advice_pct'] ?? p['advicePct'] ?? 0);
+    final advicePctVal = parsePct(p['advice_pct'] ?? p['advicePct'] ?? 0);
 
-    // restante do parsing...
     final home = fx['teams']['home']['name'] as String;
     final away = fx['teams']['away']['name'] as String;
     final date = DateTime.parse(fx['fixture']['date'] as String).toLocal();
@@ -83,16 +86,20 @@ class FixturePrediction {
     final short = fStatus['short'] as String?;
     final elapsed = fStatus['elapsed'] as int?;
 
-    final over15 =
-        double.tryParse(p['under_over']?['goals']?['over_1_5']?['percentage']?.toString() ?? '0') ?? 0;
-    final xgHome =
-        double.tryParse(p['xGoals']?['home']?['total']?.toString() ?? '0') ?? 0;
-    final xgAway =
-        double.tryParse(p['xGoals']?['away']?['total']?.toString() ?? '0') ?? 0;
+    final over15 = double.tryParse(
+        p['under_over']?['goals']?['over_1_5']?['percentage']?.toString() ?? '0') ??
+        0;
+    final xgHome = double.tryParse(
+        p['xGoals']?['home']?['total']?.toString() ?? '0') ??
+        0;
+    final xgAway = double.tryParse(
+        p['xGoals']?['away']?['total']?.toString() ?? '0') ??
+        0;
 
     final dc = p['doubleChance']?['label']?.toString() ?? '';
-    final dcPct =
-        double.tryParse(p['doubleChance']?['percentage']?.toString() ?? '0') ?? 0;
+    final dcPct = double.tryParse(
+        p['doubleChance']?['percentage']?.toString() ?? '0') ??
+        0;
 
     final over25Label = p['under_over']?['goals']?['over_2_5']?['label']?.toString();
     final over25Pct = double.tryParse(
@@ -132,6 +139,8 @@ class FixturePrediction {
       under25Pct: under25Pct,
       ambosMarcamLabel: ambosLabel,
       ambosMarcamPct: ambosPct,
+      golsCasa: null,
+      golsFora: null,
     );
   }
 
@@ -159,6 +168,8 @@ class FixturePrediction {
       under25Pct: (json['under25Pct'] as num?)?.toDouble(),
       ambosMarcamLabel: json['ambosMarcamLabel'] as String?,
       ambosMarcamPct: (json['ambosMarcamPct'] as num?)?.toDouble(),
+      golsCasa: json['golsCasa'] as int?,
+      golsFora: json['golsFora'] as int?,
     );
   }
 
@@ -185,5 +196,7 @@ class FixturePrediction {
     'under25Pct': under25Pct,
     'ambosMarcamLabel': ambosMarcamLabel,
     'ambosMarcamPct': ambosMarcamPct,
+    'golsCasa': golsCasa,
+    'golsFora': golsFora,
   };
 }
