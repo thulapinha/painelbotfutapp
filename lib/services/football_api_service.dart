@@ -52,4 +52,24 @@ class FootballApiService {
       return null;
     }
   }
+  static Future<Map<String, dynamic>?> getFixture(int fixtureId) async {
+    final url = Uri.parse('$_baseUrl/fixtures?id=$fixtureId');
+    final resp = await http.get(url, headers: _headers);
+
+    if (resp.statusCode == 200) {
+      final data = json.decode(resp.body);
+      final list = data['response'] as List<dynamic>;
+      if (list.isNotEmpty) {
+        return list.first as Map<String, dynamic>; // contém 'goals'
+      } else {
+        print("⚠️ Fixture $fixtureId não encontrado");
+        return null;
+      }
+    } else {
+      print("❌ Erro ao buscar fixture [$fixtureId]: ${resp.statusCode}");
+      print("🧾 Corpo: ${resp.body}");
+      return null;
+    }
+  }
+
 }

@@ -1,3 +1,5 @@
+// lib/home.dart
+
 import 'package:flutter/material.dart';
 import 'package:botfutapp/models/fixture_prediction.dart';
 import 'package:botfutapp/services/pre_live_service.dart';
@@ -50,6 +52,8 @@ class _HomePageState extends State<HomePage> {
           final s = m.statusShort ?? '';
           return ['1H', '2H', 'LIVE', 'HT'].contains(s);
         }).toList();
+
+        // Ordena por data e escolhe o próximo
         list.sort((a, b) => a.date.compareTo(b.date));
         final proximo = futuros.isNotEmpty ? futuros.first : list.first;
 
@@ -58,6 +62,8 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+
+              // Legenda de confiança
               const SizedBox(height: 12),
               Card(
                 child: Padding(
@@ -72,14 +78,14 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Icon(Icons.circle, color: Colors.green, size: 14),
+                          Icon(Icons.circle, color: Colors.green.shade600, size: 14),
                           const SizedBox(width: 6),
                           const Text("Alta confiança (≥ 80%)"),
                         ],
                       ),
                       Row(
                         children: [
-                          Icon(Icons.circle, color: Colors.orange, size: 14),
+                          Icon(Icons.circle, color: Colors.orange.shade600, size: 14),
                           const SizedBox(width: 6),
                           const Text("Confiança moderada (65–79%)"),
                         ],
@@ -95,21 +101,25 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
+
+              // Próximo jogo
+              const SizedBox(height: 12),
               Card(
-                color: Colors.green.shade50,
+                color: Theme.of(context).cardColor,
                 child: ListTile(
-                  leading: const Icon(
-                    Icons.flash_on,
-                    size: 36,
-                    color: Colors.green,
-                  ),
-                  title: Text("${proximo.home} x ${proximo.away}"),
+                  leading: const Icon(Icons.flash_on, size: 36, color: Colors.greenAccent),
+                  title: Text("${proximo.home} x ${proximo.away}",
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text("Dica: ${proximo.advice}"),
                   trailing: Text(
-                    "${proximo.date.hour.toString().padLeft(2, '0')}:${proximo.date.minute.toString().padLeft(2, '0')}",
+                    "${proximo.date.hour.toString().padLeft(2, '0')}:"
+                        "${proximo.date.minute.toString().padLeft(2, '0')}",
+                    style: const TextStyle(color: Colors.greenAccent),
                   ),
                 ),
               ),
+
+              // Próximos jogos
               const SizedBox(height: 12),
               Card(
                 child: ExpansionTile(
@@ -117,90 +127,94 @@ class _HomePageState extends State<HomePage> {
                   title: Text("Próximos Jogos (${futuros.length})"),
                   children: futuros
                       .take(5)
-                      .map(
-                        (m) => ListTile(
-                      title: Text("${m.home} x ${m.away}"),
-                      subtitle: Text(m.advice),
-                    ),
-                  )
+                      .map((m) => ListTile(
+                    title: Text("${m.home} x ${m.away}"),
+                    subtitle: Text(m.advice),
+                  ))
                       .toList(),
                 ),
               ),
-              const SizedBox(height: 12),
-              if (aoVivo.isNotEmpty)
+
+              // Jogos ao vivo
+              if (aoVivo.isNotEmpty) ...[
+                const SizedBox(height: 12),
                 Card(
                   child: ExpansionTile(
                     leading: const Icon(Icons.play_circle_fill),
                     title: Text("Ao Vivo (${aoVivo.length})"),
                     children: aoVivo
-                        .map(
-                          (m) => ListTile(
-                        title: Text("${m.home} x ${m.away}"),
-                        subtitle: Text("⏱️ ${m.elapsedTime ?? '--'} min"),
-                      ),
-                    )
+                        .map((m) => ListTile(
+                      title: Text("${m.home} x ${m.away}"),
+                      subtitle: Text("⏱️ ${m.elapsedTime ?? '--'} min"),
+                    ))
                         .toList(),
                   ),
                 ),
+              ],
+
+              // Botões de ação
               const SizedBox(height: 12),
               Card(
-                child: Wrap(
-                  spacing: 12,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.refresh),
-                      label: const Text("Atualizar"),
-                      onPressed: () {
-                        setState(() {
-                          _preLiveFuture = PreLiveService.getPreLive(
-                            forceRefresh: true,
-                          );
-                          _pages[0] = _buildDashboard();
-                          _pages[1] = PreLivePage(future: _preLiveFuture);
-                          _pages[2] = mp.MultiplaPage(future: _preLiveFuture);
-                          _pages[3] = LivePage(future: _preLiveFuture);
-                        });
-                      },
-                    ),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.history),
-                      label: const Text("Histórico"),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const HistoricoPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.bar_chart),
-                      label: const Text("Estatísticas"),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => StatsPage()),
-                        );
-                      },
-                    ),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.check_circle_outline),
-                      label: const Text("Confirmar Resultados"),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ReportPage(
-                              todosJogos: list,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.refresh),
+                        label: const Text("Atualizar"),
+                        onPressed: () {
+                          setState(() {
+                            _preLiveFuture =
+                                PreLiveService.getPreLive(forceRefresh: true);
+                            _pages[0] = _buildDashboard();
+                            _pages[1] = PreLivePage(future: _preLiveFuture);
+                            _pages[2] = mp.MultiplaPage(future: _preLiveFuture);
+                            _pages[3] = LivePage(future: _preLiveFuture);
+                          });
+                        },
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.history),
+                        label: const Text("Histórico"),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const HistoricoPage(),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-
-                  ],
+                          );
+                        },
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.bar_chart),
+                        label: const Text("Estatísticas"),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => StatsPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: const Text("Confirmar Resultados"),
+                        onPressed: () {
+                          // remover o 'todosJogos' que não existe
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ReportPage(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -218,8 +232,9 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.green.shade800,
-        unselectedItemColor: Colors.grey.shade600,
+        selectedItemColor: Colors.greenAccent,
+        unselectedItemColor: Colors.grey.shade500,
+        backgroundColor: Theme.of(context).cardColor,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.schedule), label: 'Pré-Live'),

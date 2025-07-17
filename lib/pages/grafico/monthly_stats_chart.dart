@@ -1,6 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-
 import 'dia_stats.dart';
 
 class MonthlyStatsChart extends StatelessWidget {
@@ -34,8 +33,8 @@ class MonthlyStatsChart extends StatelessWidget {
                     getTitlesWidget: (value, _) {
                       final i = value.toInt();
                       if (i < 0 || i >= listaFinal.length) return const SizedBox.shrink();
-                      final k = listaFinal[i].key.split('-');
-                      return Text("${k[1]}/${k[0]}", style: const TextStyle(fontSize: 10));
+                      final parts = listaFinal[i].key.split('-');
+                      return Text("${parts[1]}/${parts[0]}", style: const TextStyle(fontSize: 10));
                     },
                   ),
                 ),
@@ -75,8 +74,7 @@ class MonthlyStatsChart extends StatelessWidget {
         const SizedBox(height: 12),
         ...listaFinal.map((e) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Text(
-              "📆 ${e.key} → ✅ ${e.value.green} | ❌ ${e.value.red} | 🎯 ${e.value.pctGreen.toStringAsFixed(1)}%"),
+          child: Text("📆 ${e.key} → ✅ ${e.value.green} | ❌ ${e.value.red} | 🎯 ${e.value.pctGreen.toStringAsFixed(1)}%"),
         )),
       ],
     );

@@ -1,11 +1,10 @@
 import 'dart:convert';
-import 'package:botfutapp/pages/grafico/stats_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../../models/fixture_prediction.dart';
 import 'dia_stats.dart';
 import 'monthly_stats_chart.dart';
-
+import 'stats_chart.dart';
 
 class StatsPage extends StatefulWidget {
   const StatsPage({Key? key}) : super(key: key);
@@ -32,24 +31,50 @@ class _StatsPageState extends State<StatsPage> {
   Future<List<DiaStats>> carregarStats() async {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys()
-        .where((k) => k.startsWith('report_'))
-        .map((k) => k.replaceFirst('report_', ''))
+        .where((k) => k.startsWith('resultadosCorrigidos_'))
+        .map((k) => k.replaceFirst('resultadosCorrigidos_', ''))
         .toList()
-      ..sort((a, b) => b.compareTo(a));
+      ..sort((a, b) => b.compareTo(a)); // mais recentes primeiro
 
     final List<DiaStats> lista = [];
+
     for (final dia in keys) {
-      final raw = prefs.getString('report_$dia');
+      final raw = prefs.getString('resultadosCorrigidos_$dia');
       if (raw == null) continue;
-      final decoded = jsonDecode(raw) as List<dynamic>;
+
+      final decoded = jsonDecode(raw) as List;
+      final jogos = decoded
+          .map((e) => FixturePrediction.fromJson(e))
+          .where((j) =>
+      j.statusShort == 'FT' &&
+          j.golsCasa != null &&
+          j.golsFora != null)
+          .toList();
+
       int green = 0, red = 0;
-      for (var item in decoded) {
-        final result = (item['result'] as String).toUpperCase();
-        if (result.contains('GREEN')) green++;
-        if (result.contains('RED')) red++;
+
+      for (final j in jogos) {
+        final parts = j.advice.split(':');
+        final prediction = parts.length > 1 ? parts.last.trim() : j.advice;
+
+        final resultado = j.golsCasa! > j.golsFora!
+            ? j.home
+            : j.golsFora! > j.golsCasa!
+            ? j.away
+            : 'empate';
+
+        if (resultado == 'empate') continue;
+
+        if (prediction.toLowerCase().contains(resultado.toLowerCase())) {
+          green++;
+        } else {
+          red++;
+        }
       }
+
       lista.add(DiaStats(data: dia, green: green, red: red));
     }
+
     return lista;
   }
 

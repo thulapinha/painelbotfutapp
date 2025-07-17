@@ -1,6 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-
 import 'dia_stats.dart';
 
 class StatsChart extends StatelessWidget {
@@ -17,10 +16,7 @@ class StatsChart extends StatelessWidget {
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 8),
-          child: Text(
-            "📅 Gráfico de desempenho diário",
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
+          child: Text("📅 Gráfico de desempenho diário", style: TextStyle(fontWeight: FontWeight.bold)),
         ),
         SizedBox(
           height: 280,
@@ -38,9 +34,8 @@ class StatsChart extends StatelessWidget {
                     getTitlesWidget: (value, _) {
                       final i = value.toInt();
                       if (i < 0 || i >= dados.length) return const SizedBox.shrink();
-                      final d = dados[i];
-                      final parts = d.data.split('-');
-                      return Text("${parts[1]}/${parts[2]}", style: const TextStyle(fontSize: 10));
+                      final d = dados[i].data.split('-');
+                      return Text("${d[1]}/${d[2]}", style: const TextStyle(fontSize: 10));
                     },
                   ),
                 ),

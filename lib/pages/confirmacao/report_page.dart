@@ -1,70 +1,103 @@
+// lib/pages/confirmacao/report_page.dart
+
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/fixture_prediction.dart';
-import '../../utils/estrategia_util.dart';
-import '../../utils/validator_util.dart';
+import '../../services/resultado_service.dart';
 import 'report_card.dart';
 
-class ReportPage extends StatelessWidget {
-  final List<FixturePrediction> todosJogos;
+class ReportPage extends StatefulWidget {
+  const ReportPage({Key? key}) : super(key: key);
 
-  const ReportPage({required this.todosJogos, Key? key}) : super(key: key);
+  @override
+  _ReportPageState createState() => _ReportPageState();
+}
+
+class _ReportPageState extends State<ReportPage> {
+  late Future<List<FixturePrediction>> _futureFinished;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureFinished = _corrigirESalvarResultados();
+  }
+
+  Future<List<FixturePrediction>> _corrigirESalvarResultados() async {
+    final corrigidos = await ResultadoService.getFinalizadosCorrigidos();
+
+    // Salva histórico corrigido do dia
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().split('T').first;
+    final key = 'resultadosCorrigidos_$today';
+    final jsonStr = jsonEncode(corrigidos.map((e) => e.toJson()).toList());
+    await prefs.setString(key, jsonStr);
+
+    return corrigidos;
+  }
 
   @override
   Widget build(BuildContext context) {
-    // 1. filtrar apenas jogos que já têm resultado final
-    final finalizados = todosJogos.where((j) {
-      return j.date.isBefore(DateTime.now()) &&
-          j.golsCasa != null &&
-          j.golsFora != null;
-    }).toList();
-
-    // 2. preparar histórico
-    int green = 0, red = 0, voids = 0;
-
-    final cards = finalizados.map((j) {
-      final estrategia = getMelhorSugestao(j).label;
-      final status = validarTip(
-        estrategia: estrategia,
-        golsCasa: j.golsCasa!,
-        golsFora: j.golsFora!,
-        nomeCasa: j.home,
-        nomeFora: j.away,
-      );
-
-      if (status == "GREEN") green++;
-      else if (status == "RED") red++;
-      else voids++;
-
-      return ReportCard(
-        estrategia: estrategia,
-        status: status,
-        golsCasa: j.golsCasa!,
-        golsFora: j.golsFora!,
-        nomeCasa: j.home,
-        nomeFora: j.away,
-      );
-    }).toList();
-
-    final total = green + red + voids;
-    final acerto = total > 0 ? (green / total * 100).toStringAsFixed(1) : "0";
-
     return Scaffold(
-      appBar: AppBar(title: const Text("📈 Relatório de Tips")),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Text(
-              "✅ Assertividade: $acerto% ($green de $total)",
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          Expanded(
-            child: cards.isEmpty
-                ? const Center(child: Text("Nenhum jogo finalizado disponível"))
-                : ListView(children: cards),
-          ),
-        ],
+      appBar: AppBar(title: const Text('Confirmar Resultados')),
+      body: FutureBuilder<List<FixturePrediction>>(
+        future: _futureFinished,
+        builder: (ctx, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snap.hasError) {
+            return Center(child: Text('Erro: ${snap.error}'));
+          }
+
+          final jogos = snap.data!;
+          if (jogos.isEmpty) {
+            return const Center(child: Text('Nenhum jogo finalizado hoje.'));
+          }
+
+          return ListView.builder(
+            itemCount: jogos.length,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemBuilder: (ctx, i) {
+              final j = jogos[i];
+
+              final parts = j.advice.split(':');
+              final prediction = parts.length > 1
+                  ? parts.last.trim()
+                  : j.advice.trim();
+              final confidence = j.advicePct;
+              final golsCasa = j.golsCasa!;
+              final golsFora = j.golsFora!;
+
+              final actualWinner = golsCasa > golsFora
+                  ? j.home
+                  : golsFora > golsCasa
+                  ? j.away
+                  : 'empate';
+
+              final predLower = prediction.toLowerCase();
+              final actualLower = actualWinner.toLowerCase();
+              String status;
+              if (actualWinner == 'empate') {
+                status = 'VOID';
+              } else if (predLower.contains(actualLower)) {
+                status = 'GREEN';
+              } else {
+                status = 'RED';
+              }
+
+              return ReportCard(
+                homeTeam: j.home,
+                awayTeam: j.away,
+                homeGoals: golsCasa,
+                awayGoals: golsFora,
+                prediction: prediction,
+                confidence: confidence,
+                status: status,
+              );
+            },
+          );
+        },
       ),
     );
   }

@@ -1,64 +1,63 @@
 import 'package:flutter/material.dart';
 
 class ReportCard extends StatelessWidget {
-  final String estrategia;
-  final String status;
-  final int golsCasa;
-  final int golsFora;
-  final String nomeCasa;
-  final String nomeFora;
+  final String homeTeam;
+  final String awayTeam;
+  final int homeGoals;
+  final int awayGoals;
+  final String prediction;
+  final double confidence; // ex: 50.0
+  final String status;     // GREEN, RED ou VOID
 
   const ReportCard({
-    required this.estrategia,
-    required this.status,
-    required this.golsCasa,
-    required this.golsFora,
-    required this.nomeCasa,
-    required this.nomeFora,
     Key? key,
+    required this.homeTeam,
+    required this.awayTeam,
+    required this.homeGoals,
+    required this.awayGoals,
+    required this.prediction,
+    required this.confidence,
+    required this.status,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    Color cor;
-    IconData icone;
-
+    Color color;
+    IconData icon;
     switch (status) {
-      case "GREEN":
-        cor = Colors.green.shade800;
-        icone = Icons.check_circle;
+      case 'GREEN':
+        color = Colors.green;
+        icon = Icons.check_circle;
         break;
-      case "RED":
-        cor = Colors.red.shade700;
-        icone = Icons.cancel;
+      case 'RED':
+        color = Colors.red;
+        icon = Icons.cancel;
         break;
       default:
-        cor = Colors.grey.shade600;
-        icone = Icons.help_outline;
+        color = Colors.grey;
+        icon = Icons.help_outline;
     }
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("⚽ $nomeCasa x $nomeFora",
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text("📌 Estratégia: $estrategia"),
-            Text("📊 Resultado: $golsCasa x $golsFora"),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Icon(icone, color: cor),
-                const SizedBox(width: 6),
-                Text("Status: $status", style: TextStyle(color: cor)),
-              ],
-            ),
-          ],
-        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+            '$homeTeam vs $awayTeam',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text('Dica: $prediction (${confidence.toStringAsFixed(0)}%)'),
+          const SizedBox(height: 4),
+          Text('Resultado: $homeGoals – $awayGoals'),
+          const SizedBox(height: 8),
+          Row(children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 6),
+            Text(status, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          ]),
+        ]),
       ),
     );
   }

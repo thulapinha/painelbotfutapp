@@ -6,18 +6,15 @@ import 'football_api_service.dart';
 class PreLiveService {
   static const _cacheKey = 'pre_live_data';
   static const _cacheDateKey = 'pre_live_date';
-
-  // Cache em memória para evitar leituras repetidas
   static List<FixturePrediction>? _memoryCache;
   static String? _memoryDate;
 
-  /// Se forceRefresh=true, ignora cache e busca da API
   static Future<List<FixturePrediction>> getPreLive({
     bool forceRefresh = false,
   }) async {
     final today = DateTime.now().toIso8601String().split('T').first;
 
-    // 1) Retorna do cache em memória
+    // 1) Cache em memória
     if (!forceRefresh && _memoryCache != null && _memoryDate == today) {
       return _memoryCache!;
     }
@@ -25,7 +22,7 @@ class PreLiveService {
     final prefs = await SharedPreferences.getInstance();
     final savedDate = prefs.getString(_cacheDateKey);
 
-    // 2) Se for hoje e houver cache em prefs, carrega dele
+    // 2) Cache em SharedPreferences
     if (!forceRefresh && _memoryCache == null && savedDate == today) {
       final raw = prefs.getString(_cacheKey);
       if (raw != null) {
@@ -38,27 +35,31 @@ class PreLiveService {
       }
     }
 
-    // 3) Caso contrário, busca da API
+    // 3) Buscar TODOS os jogos de hoje
     final fixtures = await FootballApiService.getTodayFixtures();
-    final notStarted = fixtures
-        .where((fx) => fx['fixture']['status']['short'] == 'NS')
-        .toList();
+    final preds = <FixturePrediction>[];
 
-    final List<FixturePrediction> preds = [];
-    for (final fx in notStarted) {
+    for (final fx in fixtures) {
       final id = fx['fixture']['id'] as int;
-      final resp = await FootballApiService.getPrediction(id);
-      if (resp == null) continue;
-      try {
-        preds.add(
-          FixturePrediction.fromApiJson(fx as Map<String, dynamic>, resp),
-        );
-      } catch (_) {
-        // pula entry mal-formatada
+      final predJson = await FootballApiService.getPrediction(id);
+      if (predJson == null) continue;
+
+      final p = FixturePrediction.fromApiJson(
+        fx as Map<String, dynamic>,
+        predJson,
+      );
+
+      // se o JSON já trouxe gols, preenche aqui
+      final goals = fx['goals'] as Map<String, dynamic>?;
+      if (goals != null) {
+        p.golsCasa = goals['home'] as int?;
+        p.golsFora = goals['away'] as int?;
       }
+
+      preds.add(p);
     }
 
-    // 4) Grava cache em prefs e memória
+    // 4) Salvar cache
     final rawJson = json.encode(preds.map((e) => e.toJson()).toList());
     await prefs.setString(_cacheKey, rawJson);
     await prefs.setString(_cacheDateKey, today);
@@ -66,9 +67,8 @@ class PreLiveService {
     _memoryCache = preds;
     _memoryDate = today;
 
-    // 5) Também salva uma cópia permanente por data
-    final todayKey = 'prelive_$today';
-    await prefs.setString(todayKey, rawJson);
+    // 5) Histórico diário
+    await prefs.setString('prelive_$today', rawJson);
 
     return preds;
   }
