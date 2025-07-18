@@ -12,5 +12,9 @@ class MultiplaSuggestion {
   final double odd;
   final double prob;
 
-  MultiplaSuggestion({required this.legs, required this.odd, required this.prob});
+  MultiplaSuggestion({
+    required this.legs,
+    required this.odd,
+    required this.prob,
+  });
 }

@@ -10,6 +10,22 @@ import 'package:botfutapp/pages/confirmacao/historico_page.dart';
 import 'package:botfutapp/pages/grafico/stats_page.dart';
 import 'package:botfutapp/pages/confirmacao/report_page.dart';
 
+
+String traduzirTip(String raw) {
+  final r = raw.toLowerCase();
+  return r
+      .replaceAll("double chance", "Dupla Chance")
+      .replaceAll("win or draw", "Vitória ou Empate")
+      .replaceAll("draw or", "Empate ou")
+      .replaceAll("or draw", "ou Empate")
+      .replaceAll("or", "ou")
+      .replaceAll("+2.5 goals", "Mais de 2.5 Gols")
+      .replaceAll("-2.5 goals", "Menos de 2.5 Gols")
+      .replaceAll("goals", "Gols")
+      .replaceAll(" and ", " e ");
+}
+
+
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
 
@@ -110,8 +126,10 @@ class _HomePageState extends State<HomePage> {
                   leading: const Icon(Icons.flash_on, size: 36, color: Colors.greenAccent),
                   title: Text("${proximo.home} x ${proximo.away}",
                       style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text("Dica: ${proximo.advice}"),
-                  trailing: Text(
+                    subtitle: Text("Dica: ${traduzirTip(proximo.advice)}"),
+
+
+                    trailing: Text(
                     "${proximo.date.hour.toString().padLeft(2, '0')}:"
                         "${proximo.date.minute.toString().padLeft(2, '0')}",
                     style: const TextStyle(color: Colors.greenAccent),

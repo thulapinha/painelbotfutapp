@@ -1,5 +1,3 @@
-import 'package:diacritic/diacritic.dart';
-
 class FixturePrediction {
   final int id;
   final String home;
@@ -7,36 +5,25 @@ class FixturePrediction {
   final DateTime date;
   final double homePct;
   final double awayPct;
-
-  // Texto da dica e sua confiança
   final String advice;
   final double advicePct;
-
-  // LivePage — agora mutáveis
   String? statusShort;
   int? elapsedTime;
   final double over15;
   final double xgHome;
   final double xgAway;
-
-  // MúltiplaPage – Dupla Chance
   final String doubleChance;
   final double doubleChancePct;
-
-  // Estratégia complementar
   final String? secondaryAdvice;
-
-  // Estratégias alternativas
   final String? over25Label;
   final double? over25Pct;
   final String? under25Label;
   final double? under25Pct;
   final String? ambosMarcamLabel;
   final double? ambosMarcamPct;
-
-  // Resultado final do jogo — mutáveis
   int? golsCasa;
   int? golsFora;
+  String? statusCorrigido; // ✔️ novo campo para GREEN/RED/VOID
 
   FixturePrediction({
     required this.id,
@@ -63,74 +50,85 @@ class FixturePrediction {
     this.ambosMarcamPct,
     this.golsCasa,
     this.golsFora,
+    this.statusCorrigido, // ✔️ incluído no construtor
   });
 
   factory FixturePrediction.fromApiJson(
       Map<String, dynamic> fx,
-      Map<String, dynamic> resp,
+      Map<String, dynamic> p,
       ) {
-    final p = resp['predictions'] as Map<String, dynamic>;
-    final percent = p['percent'] as Map<String, dynamic>? ?? {};
+    final pred = p['predictions'] as Map<String, dynamic>? ?? {};
+    final fixtureMap = fx['fixture'] as Map<String, dynamic>? ?? {};
+    final teamsMap = fx['teams'] as Map<String, dynamic>? ?? {};
+    final homeName = teamsMap['home']?['name']?.toString() ?? 'Sem time';
+    final awayName = teamsMap['away']?['name']?.toString() ?? 'Sem time';
+    final fixtureId = fixtureMap['id'] as int? ?? 0;
 
-    double parsePct(dynamic v) {
-      if (v == null) return 0;
-      return double.tryParse(v.toString().replaceAll('%', '').trim()) ?? 0;
+    final rawDate = fixtureMap['date']?.toString();
+    DateTime date = DateTime.now();
+    if (rawDate != null && rawDate.isNotEmpty) {
+      try {
+        date = DateTime.parse(rawDate).toLocal();
+      } catch (_) {}
     }
 
-    final adviceText = (p['advice'] as String?) ?? '';
-    final advicePctVal = parsePct(p['advice_pct'] ?? p['advicePct'] ?? 0);
-
-    final homeName = fx['teams']['home']['name'] as String;
-    final awayName = fx['teams']['away']['name'] as String;
-    final dateTime = DateTime.parse(fx['fixture']['date'] as String).toLocal();
-
-    final statusMap = fx['fixture']['status'] as Map<String, dynamic>? ?? {};
+    final statusMap = fixtureMap['status'] as Map<String, dynamic>? ?? {};
     final shortStatus = statusMap['short'] as String?;
     final elapsed = statusMap['elapsed'] as int?;
 
-    final over15Pct = double.tryParse(
-      p['under_over']?['goals']?['over_1_5']?['percentage']?.toString() ?? '0',
-    ) ?? 0;
-    final xgH = double.tryParse(
-      p['xGoals']?['home']?['total']?.toString() ?? '0',
-    ) ?? 0;
-    final xgA = double.tryParse(
-      p['xGoals']?['away']?['total']?.toString() ?? '0',
-    ) ?? 0;
+    final percent = pred['percent'] as Map<String, dynamic>? ?? {};
+    double parsePct(dynamic v) => double.tryParse(v.toString().replaceAll('%', '').trim()) ?? 0;
+    final homeP = parsePct(percent['home']);
+    final drawP = parsePct(percent['draw']);
+    final awayP = parsePct(percent['away']);
 
-    final dcLabel = p['doubleChance']?['label']?.toString() ?? '';
-    final dcPctVal = double.tryParse(
-      p['doubleChance']?['percentage']?.toString() ?? '0',
-    ) ?? 0;
+    final adviceText = pred['advice']?.toString() ?? '';
+    final adviceLower = adviceText.toLowerCase();
+    double advicePctVal = 0;
 
-    final o25Label =
-    p['under_over']?['goals']?['over_2_5']?['label']?.toString();
-    final o25Pct = double.tryParse(
-      p['under_over']?['goals']?['over_2_5']?['percentage']?.toString() ?? '0',
-    );
-    final u25Label =
-    p['under_over']?['goals']?['under_2_5']?['label']?.toString();
-    final u25Pct = double.tryParse(
-      p['under_over']?['goals']?['under_2_5']?['percentage']?.toString() ?? '0',
-    );
+    if (adviceLower.contains('double') && adviceLower.contains(homeName.toLowerCase())) {
+      advicePctVal = homeP + drawP;
+    } else if (adviceLower.contains('double') && adviceLower.contains(awayName.toLowerCase())) {
+      advicePctVal = awayP + drawP;
+    } else if (adviceLower.contains(homeName.toLowerCase())) {
+      advicePctVal = homeP;
+    } else if (adviceLower.contains(awayName.toLowerCase())) {
+      advicePctVal = awayP;
+    } else {
+      advicePctVal = drawP;
+    }
 
-    final bothLabel = p['goals']?['both']?['teams']?['label']?.toString();
-    final bothPct = double.tryParse(
-      p['goals']?['both']?['teams']?['percentage']?.toString() ?? '0',
-    ) ?? 0;
+    final underOver = pred['under_over']?.toString();
+    final over15Pct = underOver == '+1.5' ? 70.0 : 0.0;
+    final o25Label = underOver == '+2.5' ? 'Over 2.5' : null;
+    final o25Pct = o25Label != null ? 65.0 : null;
+    final u25Label = underOver == '-2.5' ? 'Under 2.5' : null;
+    final u25Pct = u25Label != null ? 60.0 : null;
+
+    final xgH = parsePct(pred['goals']?['home']);
+    final xgA = parsePct(pred['goals']?['away']);
+
+    final dcLabel = pred['winner']?['comment']?.toString() ?? '';
+    final dcPctVal = (homeP + drawP >= awayP + drawP) ? homeP + drawP : awayP + drawP;
+
+    final ambosMarcamLabel = null;
+    final ambosMarcamPct = null;
 
     final goalsMap = fx['goals'] as Map<String, dynamic>?;
+    int? parseGoal(dynamic raw) => raw is int ? raw : int.tryParse(raw?.toString() ?? '');
+    final homeGoals = parseGoal(goalsMap?['home']);
+    final awayGoals = parseGoal(goalsMap?['away']);
 
     return FixturePrediction(
-      id: fx['fixture']['id'] as int,
+      id: fixtureId,
       home: homeName,
       away: awayName,
-      date: dateTime,
-      homePct: parsePct(percent['home']),
-      awayPct: parsePct(percent['away']),
+      date: date,
+      homePct: homeP,
+      awayPct: awayP,
       advice: adviceText,
       advicePct: advicePctVal,
-      secondaryAdvice: p['secondaryAdvice'] as String?,
+      secondaryAdvice: pred['secondaryAdvice']?.toString(),
       statusShort: shortStatus,
       elapsedTime: elapsed,
       over15: over15Pct,
@@ -142,10 +140,11 @@ class FixturePrediction {
       over25Pct: o25Pct,
       under25Label: u25Label,
       under25Pct: u25Pct,
-      ambosMarcamLabel: bothLabel,
-      ambosMarcamPct: bothPct,
-      golsCasa: goalsMap?['home'] as int?,
-      golsFora: goalsMap?['away'] as int?,
+      ambosMarcamLabel: ambosMarcamLabel,
+      ambosMarcamPct: ambosMarcamPct,
+      golsCasa: homeGoals,
+      golsFora: awayGoals,
+      statusCorrigido: null, // ← inicializa como null
     );
   }
 
@@ -155,18 +154,18 @@ class FixturePrediction {
       home: json['home'] as String,
       away: json['away'] as String,
       date: DateTime.parse(json['date'] as String),
-      homePct: (json['homePct'] ?? 0).toDouble(),
-      awayPct: (json['awayPct'] ?? 0).toDouble(),
-      advice: json['advice'] ?? '',
-      advicePct: (json['advicePct'] ?? 0).toDouble(),
+      homePct: (json['homePct'] as num? ?? 0).toDouble(),
+      awayPct: (json['awayPct'] as num? ?? 0).toDouble(),
+      advice: json['advice'] as String? ?? '',
+      advicePct: (json['advicePct'] as num? ?? 0).toDouble(),
       secondaryAdvice: json['secondaryAdvice'] as String?,
       statusShort: json['statusShort'] as String?,
       elapsedTime: json['elapsedTime'] as int?,
-      over15: (json['over15'] ?? 0).toDouble(),
-      xgHome: (json['xgHome'] ?? 0).toDouble(),
-      xgAway: (json['xgAway'] ?? 0).toDouble(),
-      doubleChance: json['doubleChance'] ?? '',
-      doubleChancePct: (json['doubleChancePct'] ?? 0).toDouble(),
+      over15: (json['over15'] as num? ?? 0).toDouble(),
+      xgHome: (json['xgHome'] as num? ?? 0).toDouble(),
+      xgAway: (json['xgAway'] as num? ?? 0).toDouble(),
+      doubleChance: json['doubleChance'] as String? ?? '',
+      doubleChancePct: (json['doubleChancePct'] as num? ?? 0).toDouble(),
       over25Label: json['over25Label'] as String?,
       over25Pct: (json['over25Pct'] as num?)?.toDouble(),
       under25Label: json['under25Label'] as String?,
@@ -175,8 +174,10 @@ class FixturePrediction {
       ambosMarcamPct: (json['ambosMarcamPct'] as num?)?.toDouble(),
       golsCasa: json['golsCasa'] as int?,
       golsFora: json['golsFora'] as int?,
+      statusCorrigido: json['statusCorrigido'] as String?, // ✔️ incluído no fromJson
     );
   }
+
 
   Map<String, dynamic> toJson() => {
     'id': id,

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../models/fixture_prediction.dart';
 import '../../services/pre_live_service.dart';
 import 'pre_live_card.dart';
-import 'pre_live_filter_bar.dart';
 import '../../utils/estrategia_util.dart';
 
 class PreLivePage extends StatefulWidget {
@@ -47,9 +46,10 @@ class _PreLivePageState extends State<PreLivePage> {
           return Center(child: Text('Erro: ${snap.error}'));
         }
 
-        final jogos = snap.data!;
-        final agora = DateTime.now();
+        final jogos = snap.data ?? [];
 
+        // Não filtra por statusShort nem placar — inclui todos os pré-jogos
+        final agora = DateTime.now();
         List<FixturePrediction> filtrados = _mostrarSomenteFuturos
             ? jogos.where((j) => j.date.isAfter(agora)).toList()
             : jogos;
@@ -73,19 +73,21 @@ class _PreLivePageState extends State<PreLivePage> {
                     onPressed: _refreshNow,
                   ),
                   FilterChip(
-                    label: Text(
-                      _mostrarSomenteFuturos ? "Somente futuros" : "Todos os jogos",
-                    ),
+                    label: Text(_mostrarSomenteFuturos
+                        ? "Somente futuros"
+                        : "Todos os jogos"),
                     selected: _mostrarSomenteFuturos,
-                    onSelected: (v) => setState(() => _mostrarSomenteFuturos = v),
+                    onSelected: (v) =>
+                        setState(() => _mostrarSomenteFuturos = v),
                     selectedColor: Colors.green.shade100,
                   ),
                   FilterChip(
-                    label: Text(
-                      _somenteConfiaveis ? "Confiáveis (≥70%)" : "Todos os níveis",
-                    ),
+                    label: Text(_somenteConfiaveis
+                        ? "Confiáveis (≥70%)"
+                        : "Todos os níveis"),
                     selected: _somenteConfiaveis,
-                    onSelected: (v) => setState(() => _somenteConfiaveis = v),
+                    onSelected: (v) =>
+                        setState(() => _somenteConfiaveis = v),
                     selectedColor: Colors.green.shade100,
                   ),
                 ],
@@ -96,7 +98,8 @@ class _PreLivePageState extends State<PreLivePage> {
                   ? const Center(child: Text("Nenhum jogo encontrado"))
                   : ListView.builder(
                 itemCount: filtrados.length,
-                itemBuilder: (_, i) => PreLiveCard(jogo: filtrados[i]),
+                itemBuilder: (_, i) =>
+                    PreLiveCard(jogo: filtrados[i]),
               ),
             ),
           ],

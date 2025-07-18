@@ -6,8 +6,10 @@ class ReportCard extends StatelessWidget {
   final int homeGoals;
   final int awayGoals;
   final String prediction;
-  final double confidence; // ex: 50.0
-  final String status;     // GREEN, RED ou VOID
+  final double confidence;
+  final String status;               // GREEN, RED ou VOID
+  final String? secondaryPrediction; // texto da dica secundária
+  final String? secondaryStatus;     // MEIO ou VOID
 
   const ReportCard({
     Key? key,
@@ -18,45 +20,135 @@ class ReportCard extends StatelessWidget {
     required this.prediction,
     required this.confidence,
     required this.status,
+    this.secondaryPrediction,
+    this.secondaryStatus,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    Color color;
-    IconData icon;
+    // cores e rótulos do status principal
+    Color mainColor;
+    String mainLabel;
     switch (status) {
       case 'GREEN':
-        color = Colors.green;
-        icon = Icons.check_circle;
+        mainColor = Colors.green.shade700;
+        mainLabel = 'ACERTOU';
         break;
       case 'RED':
-        color = Colors.red;
-        icon = Icons.cancel;
+        mainColor = Colors.red.shade700;
+        mainLabel = 'ERROU';
         break;
       default:
-        color = Colors.grey;
-        icon = Icons.help_outline;
+        mainColor = Colors.grey.shade600;
+        mainLabel = 'VOID';
+    }
+
+    // cores e rótulos da dica secundária
+    Color secColor = Colors.grey.shade600;
+    String secLabel = 'VOID';
+    if (secondaryStatus == 'MEIO') {
+      secColor = Colors.amber.shade700;
+      secLabel = 'MEIO';
     }
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: mainColor, width: 1.2),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(
-            '$homeTeam vs $awayTeam',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          Text('Dica: $prediction (${confidence.toStringAsFixed(0)}%)'),
-          const SizedBox(height: 4),
-          Text('Resultado: $homeGoals – $awayGoals'),
-          const SizedBox(height: 8),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          // ✅ Header: times + status principal
           Row(children: [
-            Icon(icon, color: color),
-            const SizedBox(width: 6),
-            Text(status, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Text(
+                '$homeTeam  x  $awayTeam',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Chip(
+              label: Text(
+                mainLabel,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+              backgroundColor: mainColor,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
           ]),
+
+          const SizedBox(height: 8),
+
+          // 🎯 Placar + confiança
+          Row(children: [
+            Expanded(
+              child: Text(
+                'Resultado: $homeGoals – $awayGoals',
+                style: const TextStyle(fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              fit: FlexFit.loose,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${confidence.toStringAsFixed(0)}%',
+                    style: TextStyle(color: Colors.blue.shade800, fontWeight: FontWeight.w600, fontSize: 12),
+                  ),
+                ),
+              ),
+            ),
+          ]),
+
+          // 🔸 Dica principal
+          const SizedBox(height: 8),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.lightbulb_outline, size: 20),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                prediction,
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ]),
+
+          // 🔹 Dica secundária (se houver)
+          if (secondaryPrediction?.trim().isNotEmpty ?? false) ...[
+            const SizedBox(height: 8),
+            Row(children: [
+              const Icon(Icons.subdirectory_arrow_right, size: 18),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  secondaryPrediction!,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Chip(
+                label: Text(
+                  secLabel,
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+                backgroundColor: secColor,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ]),
+          ],
         ]),
       ),
     );

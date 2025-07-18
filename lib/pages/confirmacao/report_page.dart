@@ -1,10 +1,7 @@
-// lib/pages/confirmacao/report_page.dart
-
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/fixture_prediction.dart';
 import '../../services/resultado_service.dart';
+import '../../utils/validator_util.dart';
 import 'report_card.dart';
 
 class ReportPage extends StatefulWidget {
@@ -20,20 +17,7 @@ class _ReportPageState extends State<ReportPage> {
   @override
   void initState() {
     super.initState();
-    _futureFinished = _corrigirESalvarResultados();
-  }
-
-  Future<List<FixturePrediction>> _corrigirESalvarResultados() async {
-    final corrigidos = await ResultadoService.getFinalizadosCorrigidos();
-
-    // Salva histórico corrigido do dia
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now().toIso8601String().split('T').first;
-    final key = 'resultadosCorrigidos_$today';
-    final jsonStr = jsonEncode(corrigidos.map((e) => e.toJson()).toList());
-    await prefs.setString(key, jsonStr);
-
-    return corrigidos;
+    _futureFinished = ResultadoService.getFinalizadosCorrigidos();
   }
 
   @override
@@ -58,42 +42,43 @@ class _ReportPageState extends State<ReportPage> {
           return ListView.builder(
             itemCount: jogos.length,
             padding: const EdgeInsets.symmetric(vertical: 8),
-            itemBuilder: (ctx, i) {
+            itemBuilder: (_, i) {
               final j = jogos[i];
 
-              final parts = j.advice.split(':');
-              final prediction = parts.length > 1
-                  ? parts.last.trim()
-                  : j.advice.trim();
-              final confidence = j.advicePct;
-              final golsCasa = j.golsCasa!;
-              final golsFora = j.golsFora!;
+              // dica principal
+              final primaryStatus = validarTip(
+                estrategia: j.advice,
+                golsCasa: j.golsCasa!,
+                golsFora: j.golsFora!,
+                nomeCasa: j.home,
+                nomeFora: j.away,
+              );
 
-              final actualWinner = golsCasa > golsFora
-                  ? j.home
-                  : golsFora > golsCasa
-                  ? j.away
-                  : 'empate';
-
-              final predLower = prediction.toLowerCase();
-              final actualLower = actualWinner.toLowerCase();
-              String status;
-              if (actualWinner == 'empate') {
-                status = 'VOID';
-              } else if (predLower.contains(actualLower)) {
-                status = 'GREEN';
-              } else {
-                status = 'RED';
+              // dica secundária (pode ser null ou empty)
+              String? sec = j.secondaryAdvice;
+              String? secondaryStatus;
+              if (sec != null && sec.trim().isNotEmpty) {
+                final s = validarTip(
+                  estrategia: sec,
+                  golsCasa: j.golsCasa!,
+                  golsFora: j.golsFora!,
+                  nomeCasa: j.home,
+                  nomeFora: j.away,
+                );
+                // transforma GREEN em MEIO, qualquer outro vira VOID
+                secondaryStatus = s == 'GREEN' ? 'MEIO' : 'VOID';
               }
 
               return ReportCard(
                 homeTeam: j.home,
                 awayTeam: j.away,
-                homeGoals: golsCasa,
-                awayGoals: golsFora,
-                prediction: prediction,
-                confidence: confidence,
-                status: status,
+                homeGoals: j.golsCasa!,
+                awayGoals: j.golsFora!,
+                prediction: j.advice,
+                confidence: j.advicePct,
+                status: primaryStatus,
+                secondaryPrediction: sec,
+                secondaryStatus: secondaryStatus,
               );
             },
           );

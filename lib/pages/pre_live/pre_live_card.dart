@@ -38,7 +38,6 @@ class _PreLiveCardState extends State<PreLiveCard> {
     final home = widget.jogo.home.trim();
     final away = widget.jogo.away.trim();
     final termo = '$home $away';
-
     try {
       final link = await RadarService.obterLinkBet365(
         termo: termo,
@@ -47,9 +46,7 @@ class _PreLiveCardState extends State<PreLiveCard> {
         away: away,
       );
       setState(() => _radarLink = link);
-    } catch (_) {
-      // falha silenciosa
-    }
+    } catch (_) {}
   }
 
   String _generateFallbackLink(FixturePrediction j) {
@@ -73,21 +70,52 @@ class _PreLiveCardState extends State<PreLiveCard> {
     }
   }
 
+  String traduzirTip(String raw) {
+    return raw
+        .replaceAll("Combo", "Combo")
+        .replaceAll("Double chance", "Dupla Chance")
+        .replaceAll("Win or draw", "Vitória ou Empate")
+        .replaceAll("draw or", "Empate ou")
+        .replaceAll("or draw", "ou Empate")
+        .replaceAll("or", "ou")
+        .replaceAll("+2.5 goals", "Mais de 2.5 Gols")
+        .replaceAll("+1.5 goals", "Mais de 1.5 Gols")
+        .replaceAll("-2.5 goals", "Menos de 2.5 Gols")
+        .replaceAll("goals", "Gols")
+        .replaceAll(" and ", " e ");
+  }
+
+  String traduzirEstrategia(String raw) {
+    return raw
+        .replaceAll("Double Chance", "Dupla Chance")
+        .replaceAll("Win or draw", "Vitória ou Empate")
+        .replaceAll("Draw", "Empate")
+        .replaceAll("Win", "Vitória")
+        .replaceAll("Over 2.5", "Mais de 2.5")
+        .replaceAll("Over 1.5", "Mais de 1.5")
+        .replaceAll("Under 2.5", "Menos de 2.5")
+        .replaceAll("Both teams score", "Ambas Marcam");
+  }
+
   @override
   Widget build(BuildContext context) {
     final j = widget.jogo;
     final dt = j.date;
     final date = '${dt.day}/${dt.month}/${dt.year}';
-    final time =
-        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    final time = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     final statusIcon = j.date.isBefore(DateTime.now()) ? '⏱️' : '🟢';
 
     final best = getMelhorSugestao(j);
-    final corBest = _getCor(best.pct);
+    final rawTip = j.advice;
+    final tipPct = j.advicePct;
 
-    final advice = j.advice;
-    final advicePct = _getPctByLabel(j, advice);
-    final corAdvice = _getCor(advicePct);
+    final principalLabel = (rawTip.isNotEmpty && tipPct >= best.pct)
+        ? traduzirTip(rawTip)
+        : traduzirEstrategia(best.label);
+    final principalPct = (rawTip.isNotEmpty && tipPct >= best.pct)
+        ? tipPct
+        : best.pct;
+    final corPrincipal = _getCor(principalPct);
 
     final simulada = simularConfianca(j);
     final corSimulada = _getCor(simulada);
@@ -111,84 +139,65 @@ class _PreLiveCardState extends State<PreLiveCard> {
             ],
             const SizedBox(height: 8),
 
-            Row(children: [
-              Icon(Icons.circle, color: corBest, size: 12),
-              const SizedBox(width: 6),
-              Text(
-                '📌 ${best.label} – ${best.pct.toStringAsFixed(1)}%',
-                style: TextStyle(fontWeight: FontWeight.bold, color: corBest),
-              ),
-            ]),
-
-            if (advice.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Row(children: [
-                Icon(Icons.circle, color: corAdvice, size: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.circle, color: corPrincipal, size: 12),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '🧠 $advice – ${advicePct.toStringAsFixed(1)}%',
-                    style: TextStyle(color: corAdvice),
+                    '📌 $principalLabel – ${principalPct.toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: corPrincipal,
+                    ),
                   ),
                 ),
-              ]),
-            ],
+              ],
+            ),
 
             const SizedBox(height: 6),
-            Row(children: [
-              Icon(Icons.circle, color: corSimulada, size: 12),
-              const SizedBox(width: 6),
-              Text(
-                '🔮 Confiança simulada: ${simulada.toStringAsFixed(1)}%',
-                style: TextStyle(color: corSimulada),
-              ),
-            ]),
+
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.circle, color: corSimulada, size: 12),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '🔮 Confiança simulada: ${simulada.toStringAsFixed(1)}%',
+                    style: TextStyle(color: corSimulada),
+                  ),
+                ),
+              ],
+            ),
 
             const SizedBox(height: 10),
 
             ElevatedButton.icon(
               icon: const Icon(Icons.send),
               label: const Text("Enviar tip"),
-              onPressed: widget.onEnviar ?? () {
-                final jogo = widget.jogo;
-                final dt = jogo.date;
-                final date = "${dt.day}/${dt.month}/${dt.year}";
-                final time = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+              onPressed: widget.onEnviar ??
+                      () {
+                    final buf = StringBuffer()
+                      ..writeln("🎯 *BotFut – Tip*")
+                      ..writeln("⚽ ${j.home} x ${j.away}")
+                      ..writeln("📅 $date ⏰ $time")
+                      ..writeln("📌 $principalLabel")
+                      ..writeln("🔢 Confiança: ${principalPct.toStringAsFixed(1)}%")
+                      ..writeln("")
+                      ..writeln("🔮 Confiança simulada: ${simulada.toStringAsFixed(1)}%")
+                      ..writeln("[🔗 Abrir no Bet365]($bet365Url)");
 
-                final best = getMelhorSugestao(jogo);
-                final advice = jogo.advice;
-                final advicePct = _getPctByLabel(jogo, advice);
-                final simulada = simularConfianca(jogo);
-                final bet365Url = _radarLink ?? _fallbackLink;
+                    TelegramService.sendMarkdownMessage(
+                      buf.toString(),
+                      disablePreview: true,
+                    );
 
-                final buf = StringBuffer()
-                  ..writeln("🎯 *BotFut – Tip*")
-                  ..writeln("⚽ ${jogo.home} x ${jogo.away}")
-                  ..writeln("📅 $date ⏰ $time")
-                  ..writeln("📌 Estratégia: ${best.label}")
-                  ..writeln("🔢 Confiança: ${best.pct.toStringAsFixed(1)}%");
-
-                if (advice.isNotEmpty && advicePct > 0) {
-                  buf
-                    ..writeln("")
-                    ..writeln("🧠 Dica: $advice")
-                    ..writeln("🔢 Confiança da dica: ${advicePct.toStringAsFixed(1)}%");
-                }
-
-                buf
-                  ..writeln("")
-                  ..writeln("🔮 Confiança simulada: ${simulada.toStringAsFixed(1)}%")
-                  ..writeln("[🔗 Abrir no Bet365]($bet365Url)");
-
-                TelegramService.sendMarkdownMessage(
-                  buf.toString(),
-                  disablePreview: true,
-                );
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Tip enviada ao Telegram!")),
-                );
-              },
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Tip enviada ao Telegram!")),
+                    );
+                  },
             ),
 
             const SizedBox(height: 8),
@@ -202,25 +211,6 @@ class _PreLiveCardState extends State<PreLiveCard> {
         ),
       ),
     );
-  }
-
-  double _getPctByLabel(FixturePrediction m, String label) {
-    if (label.contains(m.doubleChance)) return m.doubleChancePct;
-    if (m.over25Label != null && label.contains(m.over25Label!)) {
-      return m.over25Pct ?? 0;
-    }
-    if (m.under25Label != null && label.contains(m.under25Label!)) {
-      return m.under25Pct ?? 0;
-    }
-    if (m.ambosMarcamLabel != null && label.contains(m.ambosMarcamLabel!)) {
-      return m.ambosMarcamPct ?? 0;
-    }
-    if (label.toLowerCase().contains('casa vence')) return m.homePct;
-    if (label.toLowerCase().contains('fora vence')) return m.awayPct;
-    if (label.toLowerCase().contains('empate')) {
-      return (100 - m.homePct - m.awayPct).clamp(0, 100).toDouble();
-    }
-    return 0;
   }
 
   Color _getCor(double pct) {

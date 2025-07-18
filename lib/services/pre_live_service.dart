@@ -4,8 +4,10 @@ import '../models/fixture_prediction.dart';
 import 'football_api_service.dart';
 
 class PreLiveService {
-  static const _cacheKey = 'pre_live_data';
+  static const _cacheFixturesKey = 'pre_live_data';
   static const _cacheDateKey = 'pre_live_date';
+  static const _cachePredKey = 'pred_'; // pred_{fixtureId}_{date}
+
   static List<FixturePrediction>? _memoryCache;
   static String? _memoryDate;
 
@@ -13,63 +15,73 @@ class PreLiveService {
     bool forceRefresh = false,
   }) async {
     final today = DateTime.now().toIso8601String().split('T').first;
+    final prefs = await SharedPreferences.getInstance();
 
-    // 1) Cache em memória
+    // ✅ 1) Cache em memória
     if (!forceRefresh && _memoryCache != null && _memoryDate == today) {
       return _memoryCache!;
     }
 
-    final prefs = await SharedPreferences.getInstance();
+    // ✅ 2) Cache em SharedPreferences
     final savedDate = prefs.getString(_cacheDateKey);
-
-    // 2) Cache em SharedPreferences
-    if (!forceRefresh && _memoryCache == null && savedDate == today) {
-      final raw = prefs.getString(_cacheKey);
+    if (!forceRefresh && savedDate == today) {
+      final raw = prefs.getString(_cacheFixturesKey);
       if (raw != null) {
-        final list = (json.decode(raw) as List<dynamic>)
-            .map((e) => FixturePrediction.fromJson(e as Map<String, dynamic>))
+        final decoded = json.decode(raw) as List<dynamic>;
+        final list = decoded
+            .cast<Map<String, dynamic>>()
+            .map((e) => FixturePrediction.fromJson(e))
             .toList();
         _memoryCache = list;
         _memoryDate = today;
+        print("📦 PreLiveService: carregou ${list.length} jogos do cache SPrefs");
         return list;
       }
     }
 
-    // 3) Buscar TODOS os jogos de hoje
+    // ✅ 3) Busca da API
     final fixtures = await FootballApiService.getTodayFixtures();
-    final preds = <FixturePrediction>[];
+    print("✅ PreLiveService: fixtures retornadas: ${fixtures.length}");
 
+    final list = <FixturePrediction>[];
     for (final fx in fixtures) {
-      final id = fx['fixture']['id'] as int;
-      final predJson = await FootballApiService.getPrediction(id);
-      if (predJson == null) continue;
+      final fixtureMap = fx as Map<String, dynamic>;
+      final id = fixtureMap['fixture']?['id'] as int? ?? 0;
 
-      final p = FixturePrediction.fromApiJson(
-        fx as Map<String, dynamic>,
-        predJson,
-      );
-
-      // se o JSON já trouxe gols, preenche aqui
-      final goals = fx['goals'] as Map<String, dynamic>?;
-      if (goals != null) {
-        p.golsCasa = goals['home'] as int?;
-        p.golsFora = goals['away'] as int?;
+      // ✅ 3.1) Busca a predição com cache local
+      final keyPred = '$_cachePredKey${id}_$today';
+      final predRaw = prefs.getString(keyPred);
+      Map<String, dynamic> p;
+      if (predRaw != null && !forceRefresh) {
+        p = json.decode(predRaw) as Map<String, dynamic>;
+      } else {
+        final apiPred = await FootballApiService.getPrediction(id);
+        p = apiPred ?? <String, dynamic>{};
+        await prefs.setString(keyPred, json.encode(p));
       }
 
-      preds.add(p);
+      // ✅ 3.2) Combina fixture completo + predição
+      final obj = FixturePrediction.fromApiJson(fixtureMap, p);
+
+      // ✅ 3.3) Preenche gols se disponíveis
+      final goalsMap = fixtureMap['goals'] as Map<String, dynamic>?;
+      int? parseGoal(dynamic raw) =>
+          raw is int ? raw : int.tryParse('$raw');
+      obj.golsCasa = parseGoal(goalsMap?['home']);
+      obj.golsFora = parseGoal(goalsMap?['away']);
+
+      list.add(obj);
     }
 
-    // 4) Salvar cache
-    final rawJson = json.encode(preds.map((e) => e.toJson()).toList());
-    await prefs.setString(_cacheKey, rawJson);
+    // ✅ 4) Salva lista + data
+    final rawFixtures = json.encode(list.map((e) => e.toJson()).toList());
+    await prefs.setString(_cacheFixturesKey, rawFixtures);
     await prefs.setString(_cacheDateKey, today);
-
-    _memoryCache = preds;
+    _memoryCache = list;
     _memoryDate = today;
 
-    // 5) Histórico diário
-    await prefs.setString('prelive_$today', rawJson);
+    print("✅ PreLiveService: salvou ${list.length} jogos no cache SPrefs");
 
-    return preds;
+    return list;
   }
 }

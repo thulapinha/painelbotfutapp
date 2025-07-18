@@ -1,7 +1,25 @@
 import 'package:flutter/material.dart';
 import '../../models/fixture_prediction.dart';
-import '../../services/pre_live_service.dart';
 import '../../services/football_api_service.dart';
+import '../../services/telegram_service.dart';
+
+class LiveMatch {
+  final int id;
+  final String home;
+  final String away;
+  final String time;
+  final double over15;
+  final double xgSum;
+
+  LiveMatch({
+    required this.id,
+    required this.home,
+    required this.away,
+    required this.time,
+    required this.over15,
+    required this.xgSum,
+  });
+}
 
 class LivePage extends StatefulWidget {
   final Future<List<FixturePrediction>> future;
@@ -12,70 +30,115 @@ class LivePage extends StatefulWidget {
 }
 
 class _LivePageState extends State<LivePage> {
-  late Future<List<Map<String, dynamic>>> _liveMatches;
+  late final Future<List<LiveMatch>> _futureMatches;
 
   @override
   void initState() {
     super.initState();
-    _liveMatches = _loadLiveMatches(widget.future);
+    _futureMatches = _fetchLiveMatches();
   }
 
-  Future<List<Map<String, dynamic>>> _loadLiveMatches(
-    Future<List<FixturePrediction>> future,
-  ) async {
-    final preLiveList = await future;
-    final preLiveIds = preLiveList.map((e) => e.id).toSet();
-    final fixtures = await FootballApiService.getTodayFixtures();
+  Future<List<LiveMatch>> _fetchLiveMatches() async {
+    // 1) IDs dos jogos previstos
+    final preList = await widget.future;
+    final preIds = preList.map((e) => e.id).toSet();
 
-    final List<Map<String, dynamic>> filtered = [];
-    const liveStatuses = ['1H', '2H', 'ET', 'P', 'LIVE', 'HT'];
-    int predictionCalls = 0;
-    const maxCalls = 5;
-
-    for (var fx in fixtures) {
-      final fid = fx['fixture']['id'] as int;
-      final status = fx['fixture']['status']['short'] as String? ?? '';
-
-      if (!liveStatuses.contains(status)) continue;
-      if (!preLiveIds.contains(fid)) continue;
-      if (predictionCalls >= maxCalls) break;
-
-      predictionCalls++;
-      final pred = await FootballApiService.getPrediction(fid);
-      if (pred == null) continue;
-
-      final p = pred['predictions'] as Map<String, dynamic>? ?? {};
-      final over15 =
-          double.tryParse(
-            p['under_over']?['goals']?['over_1_5']?['percentage']?.toString() ??
-                '0',
-          ) ??
-          0;
-      final xgHome =
-          double.tryParse(p['xGoals']?['home']?['total']?.toString() ?? '0') ??
-          0;
-      final xgAway =
-          double.tryParse(p['xGoals']?['away']?['total']?.toString() ?? '0') ??
-          0;
-
-      if (over15 >= 60 || (xgHome + xgAway) >= 1.0) {
-        filtered.add({
-          'home': fx['teams']['home']['name'],
-          'away': fx['teams']['away']['name'],
-          'time': fx['fixture']['status']['elapsed'],
-          'over15': over15,
-          'xgSum': xgHome + xgAway,
-        });
-      }
+    // 2) Chama a API de jogos de hoje
+    dynamic raw;
+    try {
+      raw = await FootballApiService.getTodayFixtures();
+    } catch (_) {
+      return [];
     }
 
-    return filtered;
+    // 3) Extrai a lista de fixtures, seja raw List ou raw['response']
+    List<dynamic> fixtures;
+    if (raw is List) {
+      fixtures = raw;
+    } else if (raw is Map<String, dynamic> && raw['response'] is List) {
+      fixtures = raw['response'];
+    } else {
+      return [];
+    }
+
+    const liveStatuses = ['1H', '2H', 'LIVE', 'HT'];
+    const int maxCalls = 5;
+    int calls = 0;
+    final List<LiveMatch> result = [];
+
+    for (final item in fixtures) {
+      if (calls >= maxCalls) break;
+      if (item is! Map<String, dynamic>) continue;
+
+      // a) Converte o ID para int de forma segura
+      final fx = item['fixture'];
+      if (fx is! Map<String, dynamic>) continue;
+      final rawId = fx['id'];
+      final int? id = rawId is int
+          ? rawId
+          : (rawId is String ? int.tryParse(rawId) : null);
+      if (id == null || !preIds.contains(id)) continue;
+
+      // b) Verifica status ao vivo
+      final status = fx['status'];
+      if (status is! Map<String, dynamic>) continue;
+      final short = status['short']?.toString() ?? '';
+      if (!liveStatuses.contains(short)) continue;
+
+      // c) Faz a previsão de gols
+      calls++;
+      final pred = await FootballApiService.getPrediction(id);
+      if (pred == null) continue;
+      final preds = pred['predictions'];
+      if (preds is! Map<String, dynamic>) continue;
+
+      // Over1.5 (%)
+      final rawOver = preds['under_over']
+      ?['goals']?['over_1_5']?['percentage'];
+      double over15 = 0;
+      if (rawOver is num) {
+        over15 = rawOver.toDouble();
+      } else if (rawOver is String) {
+        over15 = double.tryParse(rawOver.replaceAll('%', '')) ?? 0;
+      }
+
+      // xG home + away
+      final rawH = preds['xGoals']?['home']?['total'];
+      final rawA = preds['xGoals']?['away']?['total'];
+      double xgH = rawH is num
+          ? rawH.toDouble()
+          : (rawH is String ? double.tryParse(rawH) ?? 0 : 0);
+      double xgA = rawA is num
+          ? rawA.toDouble()
+          : (rawA is String ? double.tryParse(rawA) ?? 0 : 0);
+
+      // d) Filtra potencial de gol
+      if (over15 < 60 && (xgH + xgA) < 1.0) continue;
+
+      // e) Extrai times e tempo decorrido
+      final teams = item['teams'];
+      if (teams is! Map<String, dynamic>) continue;
+      final homeName = teams['home']?['name']?.toString() ?? '';
+      final awayName = teams['away']?['name']?.toString() ?? '';
+      final elapsed = status['elapsed']?.toString() ?? '--';
+
+      result.add(LiveMatch(
+        id: id,
+        home: homeName,
+        away: awayName,
+        time: elapsed,
+        over15: over15,
+        xgSum: xgH + xgA,
+      ));
+    }
+
+    return result;
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _liveMatches,
+    return FutureBuilder<List<LiveMatch>>(
+      future: _futureMatches,
       builder: (ctx, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -84,27 +147,51 @@ class _LivePageState extends State<LivePage> {
           return Center(child: Text('Erro: ${snap.error}'));
         }
 
-        final matches = snap.data ?? [];
-        if (matches.isEmpty) {
-          return const Center(
-            child: Text('Nenhum jogo ao vivo com potencial.'),
-          );
+        final games = snap.data!;
+        if (games.isEmpty) {
+          return const Center(child: Text('Nenhum jogo ao vivo com potencial.'));
         }
 
         return ListView.builder(
-          itemCount: matches.length,
+          itemCount: games.length,
           itemBuilder: (ctx, i) {
-            final m = matches[i];
+            final m = games[i];
             return Card(
               margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: ListTile(
-                title: Text("${m['home']} x ${m['away']}"),
-                subtitle: Text("⏱️ ${m['time']} min"),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text("📊 Over1.5: ${m['over15'].toStringAsFixed(0)}%"),
-                    Text("⚽ xG: ${m['xgSum'].toStringAsFixed(2)}"),
+                    Text("⚽ ${m.home} x ${m.away}",
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Text("⏱️ ${m.time} min"),
+                    Text("📊 Over 1.5 Gols: ${m.over15.toStringAsFixed(0)}%"),
+                    Text("⚽ xG combinado: ${m.xgSum.toStringAsFixed(2)}"),
+                    const SizedBox(height: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.send),
+                      label: const Text("Alerta de Gol"),
+                      onPressed: () {
+                        final msg = """
+🔥 *BotFut – Alerta de Gol* 🔥
+
+⚽ ${m.home} x ${m.away}
+⏱️ ${m.time} min
+
+📊 Probabilidade de +1.5 Gols: ${m.over15.toStringAsFixed(0)}%
+⚽ xG combinado: ${m.xgSum.toStringAsFixed(2)}
+
+🔎 Potencial de gol detectado!
+""";
+                        TelegramService.sendMarkdownMessage(msg,
+                            disablePreview: true);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Alerta enviado!")),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),

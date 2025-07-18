@@ -48,10 +48,7 @@ class _HistoricoPageState extends State<HistoricoPage> {
 
     final lista = (jsonDecode(raw) as List)
         .map((e) => FixturePrediction.fromJson(e))
-        .where((j) =>
-    j.statusShort == 'FT' &&
-        j.golsCasa != null &&
-        j.golsFora != null)
+        .where((j) => j.statusShort == 'FT' && j.golsCasa != null && j.golsFora != null)
         .toList();
 
     setState(() {
@@ -61,50 +58,102 @@ class _HistoricoPageState extends State<HistoricoPage> {
   }
 
   Widget _buildResumo(FixturePrediction jogo) {
-    final estrategia = _getMelhorEstrategia(jogo);
-    final dica = jogo.advice;
-
     final casa = jogo.golsCasa!;
     final fora = jogo.golsFora!;
-    const fonte = "✅FT";
+    final dicaPrincipal = jogo.advice;
+    final dicaSecundaria = jogo.secondaryAdvice;
 
-    final statusEstrategia = validarTip(
-      estrategia: estrategia.label,
-      golsCasa: casa,
-      golsFora: fora,
-      nomeCasa: jogo.home,
-      nomeFora: jogo.away,
-    );
+    final statusPrincipal = jogo.statusCorrigido ??
+        validarTip(
+          estrategia: dicaPrincipal,
+          golsCasa: casa,
+          golsFora: fora,
+          nomeCasa: jogo.home,
+          nomeFora: jogo.away,
+        );
 
-    final statusDica = validarTip(
-      estrategia: dica,
-      golsCasa: casa,
-      golsFora: fora,
-      nomeCasa: jogo.home,
-      nomeFora: jogo.away,
-    );
+    String? statusSecundaria;
+    if (dicaSecundaria != null && dicaSecundaria.trim().isNotEmpty) {
+      final s = validarTip(
+        estrategia: dicaSecundaria,
+        golsCasa: casa,
+        golsFora: fora,
+        nomeCasa: jogo.home,
+        nomeFora: jogo.away,
+      );
+      statusSecundaria = s == 'GREEN' ? 'MEIO' : 'VOID';
+    }
+
+    final estrategia = _getMelhorEstrategia(jogo);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: ListTile(
-        title: Text("🏟️ ${jogo.home} x ${jogo.away}"),
-        subtitle: Text(
-          "$fonte\n📌 Estratégia: ${estrategia.label} → $statusEstrategia\n📌 Dica: $dica → $statusDica",
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              statusEstrategia,
-              style: TextStyle(color: _corStatus(statusEstrategia)),
-            ),
-            Text(
-              statusDica,
-              style: TextStyle(color: _corStatus(statusDica)),
-            ),
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: _corStatus(statusPrincipal), width: 1.2),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(
+            '🏟️ ${jogo.home} x ${jogo.away}',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text('Resultado: $casa – $fora'),
+          const SizedBox(height: 4),
+          Text('🎯 Estratégia sugerida: ${estrategia.label} (${estrategia.pct.toStringAsFixed(0)}%)'),
+          const SizedBox(height: 8),
+          Row(children: [
+            const Icon(Icons.lightbulb_outline, size: 18),
+            const SizedBox(width: 6),
+            Expanded(child: Text('Dica principal: $dicaPrincipal')),
+            _buildStatusChip(statusPrincipal),
+          ]),
+          if (dicaSecundaria != null && dicaSecundaria.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(children: [
+              const Icon(Icons.subdirectory_arrow_right, size: 16),
+              const SizedBox(width: 6),
+              Expanded(child: Text('Secundária: $dicaSecundaria')),
+              _buildStatusChip(statusSecundaria),
+            ]),
           ],
-        ),
-        isThreeLine: true,
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String? status) {
+    Color cor;
+    String label;
+
+    switch (status) {
+      case 'GREEN':
+        cor = Colors.green.shade700;
+        label = 'ACERTOU';
+        break;
+      case 'RED':
+        cor = Colors.red.shade700;
+        label = 'ERROU';
+        break;
+      case 'MEIO':
+        cor = Colors.amber.shade800;
+        label = 'MEIO';
+        break;
+      default:
+        cor = Colors.grey.shade600;
+        label = 'VOID';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Chip(
+        label: Text(label,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+        backgroundColor: cor,
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     );
   }
@@ -134,12 +183,14 @@ class _HistoricoPageState extends State<HistoricoPage> {
     return _EstrategiaSugestao(melhor.key, melhor.value);
   }
 
-  Color _corStatus(String status) {
+  Color _corStatus(String? status) {
     switch (status) {
       case 'GREEN':
         return Colors.green.shade800;
       case 'RED':
         return Colors.red.shade700;
+      case 'MEIO':
+        return Colors.amber.shade700;
       default:
         return Colors.grey.shade600;
     }
